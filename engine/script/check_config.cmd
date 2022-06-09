@@ -17,7 +17,7 @@ if /I %Machine%==1			( echo » Machine: MSX 1
 ) else if /I %Machine%==TR	( echo » Machine: MSX turbo R
 ) else if /I %Machine%==12	( echo » Machine: MSX 1/2
 ) else (
-	echo %RED%Error: Unknow MSX Version%RESET%
+	echo %RED%Error: Unknown MSX Version%RESET%
 	exit /B 10
 )
 
@@ -108,30 +108,30 @@ if %DoRun%==1 (
 ::***************************************************************************
 
 if not defined DoClean (
-	echo %YELLOW%Warning: 'DoClean' buils step not defined. This step will be disable. %RESET%
+	echo %YELLOW%Warning: 'DoClean' build step not defined. This step will be disabled. %RESET%
 	set DoClean=0
 )
 
 if not defined DoCompile (
-	echo %YELLOW%Warning: 'DoCompile' buils step not defined. This step will be disable. %RESET%
+	echo %YELLOW%Warning: 'DoCompile' build step not defined. This step will be disabled. %RESET%
 	set DoCompile=0
 )
 
 if not defined DoMake (
-	echo %YELLOW%Warning: 'DoMake' buils step not defined. This step will be disable. %RESET%
+	echo %YELLOW%Warning: 'DoMake' build step not defined. This step will be disabled. %RESET%
 	set DoMake=0
 )
 
 if not defined DoPackage (
-	echo %YELLOW%Warning: 'DoPackage' buils step not defined. This step will be disable. %RESET%
+	echo %YELLOW%Warning: 'DoPackage' build step not defined. This step will be disabled. %RESET%
 	set DoPackage=0
 )
 
 if not defined DoDeploy (
-	echo %YELLOW%Warning: 'DoDeploy' buils step not defined. This step will be disable. %RESET%
+	echo %YELLOW%Warning: 'DoDeploy' build step not defined. This step will be disabled. %RESET%
 	set DoDeploy=0
 )
 if not defined DoRun (
-	echo %YELLOW%Warning: 'DoRun' buils step not defined. This step will be disable. %RESET%
+	echo %YELLOW%Warning: 'DoRun' build step not defined. This step will be disabled. %RESET%
 	set DoRun=0
 )

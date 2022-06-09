@@ -14,6 +14,7 @@ if /I %Target%==DOS     set Target=DOS1
 if /I %Target%==DOS_ARG set Target=DOS2_ARG
 if /I %Target%==ROM     set Target=ROM_32K
 if /I %Target%==BAS     set Target=BIN
+if /I %Target%==DAT     set Target=DAT
 
 ::***************************************************************************
 ::* BASIC                                                                   *
@@ -291,5 +292,29 @@ if /I %Target%==DOS2_ARG (
 	exit /B 0
 )
 
-echo %RED% Error^! Unknow target %Target%%RESET%
+::***************************************************************************
+::* DATA                                                                    *
+::***************************************************************************
+
+::---------------------------------------------------------------------------
+if /I %Target%==DAT (
+
+	set Ext=dat
+	if defined StartAddr (
+		set CodeAddr=%StartAddr%
+		set RamAddr=%StartAddr%
+	) else (
+		set StartAddr=0000
+		set CodeAddr=0000
+		set RamAddr=0000
+	)
+	set FillSize=0
+	set LibModules=
+	
+	echo » Target: Binary data file ^(0000h~^)
+	exit /B 0
+)
+
+
+echo %RED% Error^! Unknown target %Target%%RESET%
 exit /b 1

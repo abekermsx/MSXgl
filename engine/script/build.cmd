@@ -104,8 +104,11 @@ if %BankedCall%==1  ( echo ROM_BCALL=1 >> %OutDir%\crt0_config.asm )
 ::=============================================================================
 
 :: Add crt0 source to build list (it must be the first in the list)
-set SrcList=%LibDir%\src\crt0\%Crt0%.asm
-set LibList=%OutDir%\%Crt0%.rel 
+
+if defined Crt0 (
+	set SrcList=%LibDir%\src\crt0\%Crt0%.asm
+	set LibList=%OutDir%\%Crt0%.rel 
+)
 
 :: Add project sources to build list
 for %%G in (%ProjModules%) do (
@@ -132,7 +135,7 @@ for %%G in (%LibModules%) do (
 if not defined AddSources goto NoAddSources
 for %%G in (%AddSources%) do (
 	if not exist "%%G" (
-		echo %RED%Error: Additionnal source %%G don't exist%RESET%
+		echo %RED%Error: Additional source %%G don't exist%RESET%
 		exit /B 120
 	)
 	set SrcList=!SrcList!,%%G
@@ -248,7 +251,11 @@ echo %BLUE%Packaging binary...%RESET%
 ::=============================================================================
 
 if %MapperSize%==0 (
-	set H2BParam=%OutDir%\%Crt0%.ihx -e %Ext% -s 0x%StartAddr% -l %FillSize%
+	if defined Crt0 (
+		set H2BParam=%OutDir%\%Crt0%.ihx -e %Ext% -s 0x%StartAddr% -l %FillSize%
+	) else (
+		set H2BParam=%OutDir%\%ProjName%.ihx -e %Ext% -s 0x%StartAddr% -l %FillSize%
+	)
 ) else (	
 	set H2BParam=%OutDir%\%Crt0%.ihx -e %Ext% -s 0x%StartAddr% -l %MapperSize% -b %SegSize%
 )
@@ -295,6 +302,9 @@ if /I %Ext%==com (
 		if not exist "%ProjDir%\emul\dos%DOS%\MSXDOS2.SYS"  ( copy /Y %MSXDOS%\MSXDOS2.SYS %ProjDir%\emul\dos%DOS% )
 	)
 	if not exist "%ProjDir%\emul\dsk" ( md %ProjDir%\emul\dsk )
+)
+if /I %Ext%==dat (
+	if not exist "%ProjDir%\data" ( md %ProjDir%\data )
 )
 
 for %%I in ("%DskTool%") do set DskToolPath=%%~dI%%~pI
@@ -425,6 +435,14 @@ if /I %Ext%==com (
 		del /Q %DskToolPath%\temp.dsk
 		for %%K in (!FilesList!) do ( del /Q %DskToolPath%\%%K )
 	)
+)
+
+
+::-----------------------------------------------------------------------------
+if /I %Ext%==dat (
+	::---- Copy data file ----
+	echo -- Copy %OutDir%\%ProjName%.%Ext% to data\%ProjName%.%Ext%
+	copy /Y %OutDir%\%ProjName%.%Ext% %ProjDir%\data\%ProjName%.%Ext%
 )
 
 echo %GREEN%Succeed%RESET%
