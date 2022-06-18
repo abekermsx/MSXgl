@@ -10,13 +10,21 @@
 // INCLUDES
 //=============================================================================
 #include "msxgl.h"
+#include "template.h"
+
+//=============================================================================
+// DEFINES
+//=============================================================================
+
+// Library's logo
+#define MSX_GL "\x01\x02\x03\x04\x05\x06"
 
 //=============================================================================
 // READ-ONLY DATA
 //=============================================================================
 
-// Logo
-#include "template.h"
+// Fonts data
+#include "font\font_mgl_sample6.h"
 
 // Animation characters
 const u8 g_ChrAnim[] = { '-', '/', '|', '\\' };
@@ -31,19 +39,17 @@ void main()
 {
 	VDP_SetMode(VDP_MODE_SCREEN0);
 	VDP_EnableVBlank(TRUE);
-	VDP_FillVRAM(0x00, 0x0000, 0, 256*64); // Clear 16KB VRAM
+	VDP_ClearVRAM();
 
-	Print_SetTextFont(NULL, 1);
+	Print_SetTextFont(g_Font_MGL_Sample6, 1);
 	Print_SetColor(COLOR_WHITE, COLOR_BLACK);
 	Print_SetPosition(0, 0);
-	Print_DrawText(g_Logo);
-	Print_Return();
-	Print_DrawText("The MSX Game Library");
+	Print_DrawText(MSX_GL" The MSX Game Library");
 
 	u8 count = 0;
 	while(!Keyboard_IsKeyPressed(KEY_ESC))
 	{
-		Print_SetPosition(25, 0);
+		Print_SetPosition(39, 0);
 		Print_DrawChar(g_ChrAnim[count++ % 4]);
 		Halt();
 	}
