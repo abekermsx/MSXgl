@@ -312,7 +312,7 @@ if /I %Target%==DAT (
 	set FillSize=0
 	set LibModules=
 	
-	echo » Target: Binary data file ^(0000h~^)
+	echo » Target: Binary data file ^(!StartAddr!h~^)
 	exit /B 0
 )
 
