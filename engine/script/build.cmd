@@ -396,9 +396,9 @@ if /I %Ext%==bin (
 		echo -- Generate .DSK file
 		echo %DskToolName% a temp.dsk !FilesList!
 		set PrevCD=%cd%
-		cd %DskToolPath%
+		cd /D %DskToolPath%
 		%DskToolName% a temp.dsk !FilesList!
-		cd !PrevCD!
+		cd /D !PrevCD!
 		
 		echo -- Copy DSK file to %ProjDir%\emul\dsk\%Target%_%ProjName%.dsk
 		copy /Y %DskToolPath%\temp.dsk %ProjDir%\emul\dsk\%Target%_%ProjName%.dsk
@@ -455,9 +455,9 @@ if /I %Ext%==com (
 		echo -- Generate .DSK file
 		echo %DskToolName% a temp.dsk !FilesList!
 		set PrevCD=%cd%
-		cd %DskToolPath%
+		cd /D %DskToolPath%
 		%DskToolName% a temp.dsk !FilesList!
-		cd !PrevCD!
+		cd /D !PrevCD!
 
 		echo -- Copy DSK file to %ProjDir%\emul\dsk\%Target%_%ProjName%.dsk
 		copy /Y %DskToolPath%\temp.dsk %ProjDir%\emul\dsk\%Target%_%ProjName%.dsk
