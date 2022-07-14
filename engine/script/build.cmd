@@ -111,7 +111,9 @@ if %InstallRAMISR%==HBLANK (
 ::=============================================================================
 
 :: Add crt0 source to build list (it must be the first in the list)
-set SrcList=%LibDir%\src\crt0\%Crt0%.asm
+if defined Crt0 (
+	set SrcList=%LibDir%\src\crt0\%Crt0%.asm
+)
 set RelList=
 set LibList=
 
@@ -127,6 +129,7 @@ for %%G in (%ProjModules%) do (
 
 :: Add modules sources to build list
 if not %BuildLibrary%==1 goto NoCompileLib
+if /I %Ext%==dat goto NoCompileLib
 echo » Modules: %LibModules%
 for %%G in (%LibModules%) do (
 	if not exist "%LibDir%\src\%%G.c" (
@@ -229,6 +232,7 @@ echo └────────────────────────
 :: Generate Library
 ::=============================================================================
 if not %BuildLibrary%==1 goto NoBuildLib
+if /I %Ext%==dat goto NoBuildLib
 
 echo %BLUE%Generate msxgl.lib...%RESET%
 
@@ -251,7 +255,12 @@ if %Optim%==Speed ( set LinkOpt=%LinkOpt% --opt-code-speed )
 if %Optim%==Size ( set LinkOpt=%LinkOpt% --opt-code-size )
 if %Debug%==1 ( set LinkOpt=%LinkOpt% --debug )
 
-set SDCCParam=-mz80 --vc --no-std-crt0 --code-loc 0x%CodeAddr% --data-loc 0x%RamAddr% %LinkOpt% %MapperBanks% %OutDir%\%Crt0%.rel %OutDir%\msxgl.lib %RelList% -o %OutDir%\%ProjName%.ihx
+if /I %Ext%==dat (
+	set SDCCParam=-mz80 --vc --no-std-crt0 --code-loc 0x%CodeAddr% --data-loc 0x%RamAddr% %LinkOpt% %MapperBanks% %RelList% -o %OutDir%\%ProjName%.ihx
+) else (
+	set SDCCParam=-mz80 --vc --no-std-crt0 --code-loc 0x%CodeAddr% --data-loc 0x%RamAddr% %LinkOpt% %MapperBanks% %OutDir%\%Crt0%.rel %OutDir%\msxgl.lib %RelList% -o %OutDir%\%ProjName%.ihx
+)
+
 echo SDCC %SDCCParam%
 %Linker% %SDCCParam%
 if errorlevel 1 goto :Error
