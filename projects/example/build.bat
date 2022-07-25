@@ -1,57 +1,37 @@
-:: ██▀▀█▀▀███▀▀▀▀▀▀▀███▀▀█▀▀▀▀▀▀▀▀█
-:: ██  ▀  ██   ▄▄▄▄  ▀  ▄█ ▄▀▀ █  █
-:: █  ▄ ▄  ▀▀▀   █▀  ▄  ▀█ ▀▄█ █▄ █
-:: █▄▄█▄█▄▄▄▄▄▄▄██▄▄███▄▄█▄▄▄▄▄▄▄▄█
-::  by Guillaume 'Aoineko' Blanchard under CC BY-AS license
+:: ____________________________
+:: ██▀▀█▀▀██▀▀▀▀▀▀▀█▀▀█        │   ▄▄▄                ▄▄      
+:: ██  ▀  █▄  ▀██▄ ▀ ▄█ ▄▀▀ █  │  ▀█▄  ▄▀██ ▄█▄█ ██▀▄ ██  ▄███
+:: █  █ █  ▀▀  ▄█  █  █ ▀▄█ █▄ │  ▄▄█▀ ▀▄██ ██ █ ██▀  ▀█▄ ▀█▄▄
+:: ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀────────┘                 ▀▀
+::  by Guillaume 'Aoineko' Blanchard under CC BY-SA license
+::─────────────────────────────────────────────────────────────────────────────
 @echo off
 
 ::─────────────────────────────────────────────────────────────────────────────
-:: Build Tool default configuration
+:: Build Tool configuration
 ::─────────────────────────────────────────────────────────────────────────────
-
-::*****************************************************************************
-:: DIRECTORIES SETTINGS
-::*****************************************************************************
-
-set ProjDir=.
-REM set ProjDir=%~d1%~p1
-set OutDir=%ProjDir%\out
-set LibDir=%~dp0..\engine
-set ToolsDir=%~dp0..\tools
+call ..\default_config.cmd %0
 
 ::*****************************************************************************
 :: TOOLS SETTINGS
 ::*****************************************************************************
-
-set Compiler=%ToolsDir%\sdcc\bin\sdcc.exe
-set Assembler=%ToolsDir%\sdcc\bin\sdasz80.exe
-set Linker=%ToolsDir%\sdcc\bin\sdcc.exe
-set MakeLib=%ToolsDir%\sdcc\bin\sdar.exe
-set Hex2Bin=%ToolsDir%\MSXtk\bin\MSXhex.exe
-set MSXDOS=%ToolsDir%\build\MSXDOS
-set DskTool=%ToolsDir%\build\DskTool\dsktool.exe
-REM set Emulator=
-REM set Emulator=%ToolsDir%\OpenMSX\openmsx.exe
+set Emulator=%ToolsDir%\OpenMSX\openmsx.exe
 REM set Emulator=%ToolsDir%\Emulicious\Emulicious.exe
 REM set Emulator=%ToolsDir%\BlueMSX\blueMSX.exe
 REM set Emulator=%ToolsDir%\MEISEI\meisei.exe
 REM set Emulator=%ToolsDir%\fMSX\fMSX.exe
 REM set Emulator=%ToolsDir%\RuMSX\MSX.exe
-set Debugger=
-REM set Debugger=%ToolsDir%\OpenMSX\Debugger\openmsx-debugger.exe
 
 ::*****************************************************************************
 :: PROJECT SETTINGS
 ::*****************************************************************************
 
 :: Project name (will be use for output filename)
-set ProjName=
+set ProjName=example
 :: Project modules to build (use ProjName if not defined)
-set ProjModules=
-:: List of library modules to build
-set LibModules=system,bios,vdp,print,input,memory
-:: Additional sources
-set AddSources=
+set ProjModules=%ProjName%
+:: List of modules to link
+SET LibModules=system,bios,vdp,print,input,memory,game,game_pawn,math
 
 :: MSX machine version:
 :: - 1		MSX 1
@@ -85,66 +65,61 @@ set Target=ROM_32K
 set ROMSize=
 
 :: Install BDOS driver for ROM program? (0=false, 1=true)
-set InstallBDOS=0
-:: Set RAM in slot 0 and install ISR there
-:: - 0				Don't install
-:: - 1 | VBLANK		Add ISR that support V-blank interruption
-:: - HBLANK			Add ISR that support V-blank and H-blank interruption
-set InstallRAMISR=0
+REM set InstallBDOS=0
+:: Set RAM in slot 0 and install ISR there (0=false, 1=true)
+REM set InstallRAMISR=0
 :: Use banked call and trampoline functions (0=false, 1=true)
-set BankedCall=0
+REM set BankedCall=0
 :: Overwrite RAM starting address (e.g. 0xE0000 for 8K RAM machine)
-set ForceRamAddr=
+REM set ForceRamAddr=
 :: Data to copy to disk (comma separated list)
-set DiskFiles=
+REM set DiskFiles=
 
 ::*******************************************************************************
 :: MAKE SETTINGS
 ::*******************************************************************************
 
-:: Generate MSXgl library (0=false, 1=true)
-set BuildLibrary=1
+:: Use static MSXgl library (0=false, 1=true)
+REM set BuildLibrary=0
 :: Set debug flag (0=false, 1=true)
-set Debug=0
+REM set Debug=0
 :: Assembler code optimizer
 :: - None
 :: - PeepHole	SDCC otpimizer
 :: - MDL		MDL z80 otpimizer
-set AsmOptim=None
+REM set AsmOptim=None
 :: Optim:
 :: - Default
 :: - Speed
 :: - Size
-set Optim=Speed
+REM set Optim=Speed
 :: Additionnal compilation flag
-set CompileOpt=
+REM set CompileOpt=
 :: Skip file if compile data is newer than the (0=false, 1=true)
-set CompileSkipOld=0
+set CompileSkipOld=1
 :: Compile verbose mode (0=false, 1=true)
-set Verbose=0
-:: Additionnal link flag
-set LinkOpt=
+REM set Verbose=0
 :: Update build version header file
-set BuildVersion=0
+set BuildVersion=1
 
 ::*******************************************************************************
 :: EMULATOR SETINGS
 ::*******************************************************************************
 
 :: Emulator options: 0 or 1
-set EmulMachine=1
-set Emul60Hz=0
-set EmulFullScreen=0
-set EmulMute=0
-set EmulDebug=0
+set EmulMachine=0
+REM set Emul60Hz=0
+REM set EmulFullScreen=0
+REM set EmulMute=0
+REM set EmulDebug=0
 :: Emulator extensions: 0 or 1
-set EmulSCC=0
-set EmulMSXMusic=0
-set EmulMSXAudio=0
-set EmulPSG2=0
-set EmulV9990=0
+REM set EmulSCC=0
+REM set EmulMSXMusic=0
+REM set EmulMSXAudio=0
+REM set EmulPSG2=0
+REM set EmulV9990=0
 :: Emulator extra parameters to be add to command-line (emulator sotfware specific)
-set EmulExtraParam=
+REM set EmulExtraParam=
 
 ::*******************************************************************************
 :: BUILD STEPS
@@ -155,4 +130,9 @@ set DoCompile=1
 set DoMake=1
 set DoPackage=1
 set DoDeploy=1
-set DoRun=0
+set DoRun=1
+
+::*****************************************************************************
+:: START BUILD
+::*****************************************************************************
+call %LibDir%\script\build.cmd
