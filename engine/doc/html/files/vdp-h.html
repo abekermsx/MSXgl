@@ -107,9 +107,9 @@
  <div class="CBody"><p>Read default S#0 register. [MSX1/2/2+/TR]</p><div class="CHeading">Return</div><p>Status register #0 value</p></div>
 </div>
 
-<a name="VDP_ReadStatus"></a><a name="Topic362"></a><div class="CTopic TFunction LC">
+<a name="VDP_ReadStatus"></a><a name="Topic386"></a><div class="CTopic TFunction LC">
  <div class="CTitle">VDP_ReadStatus</div>
- <div id="NDPrototype362" class="NDPrototype WideForm"><div class="PSection PParameterSection CStyle"><table><tr><td class="PBeforeParameters">u8 VDP_ReadStatus(</td><td class="PParametersParentCell"><table class="PParameters"><tr><td class="PType first">u8&nbsp;</td><td class="PName last">stat</td></tr></table></td><td class="PAfterParameters">) __FASTCALL</td></tr></table></div></div>
+ <div id="NDPrototype386" class="NDPrototype WideForm"><div class="PSection PParameterSection CStyle"><table><tr><td class="PBeforeParameters">u8 VDP_ReadStatus(</td><td class="PParametersParentCell"><table class="PParameters"><tr><td class="PType first">u8&nbsp;</td><td class="PName last">stat</td></tr></table></td><td class="PAfterParameters">)</td></tr></table></div></div>
  <div class="CBody"><p>Read a given status register then reset status register to default (0). [MSX2/2+/TR]</p><div class="CHeading">Parameters</div><table class="CDefinitionList"><tr><td class="CDLEntry">stat<div class="CDLParameterType">u8</div></td><td class="CDLDefinition"><p>Status register number (0-9)</p></td></tr></table><div class="CHeading">Return</div><p>The given status register value</p></div>
 </div>
 
@@ -235,6 +235,12 @@
  <div class="CTitle">VDP_SetAdjustOffset</div>
  <div id="NDPrototype139" class="NDPrototype WideForm"><div class="PSection PParameterSection CStyle"><table><tr><td class="PBeforeParameters"><span class="SHKeyword">void</span> VDP_SetAdjustOffset(</td><td class="PParametersParentCell"><table class="PParameters"><tr><td class="PType first">u8&nbsp;</td><td class="PName last">offset</td></tr></table></td><td class="PAfterParameters">)</td></tr></table></div></div>
  <div class="CBody"><p>Adjustment of the display location on the screen (register 18). [MSX2/2+/TR]</p><div class="CHeading">Parameters</div><table class="CDefinitionList"><tr><td class="CDLEntry">offset<div class="CDLParameterType">u8</div></td><td class="CDLDefinition"><p>Screen display position offset (MSB 4-bits: vertical offset, LSB 4-bits: horizontal offset)</p></td></tr></table></div>
+</div>
+
+<a name="VDP_SetAdjustOffsetXY"></a><a name="Topic274"></a><div class="CTopic TFunction LC">
+ <div class="CTitle">VDP_SetAdjustOffsetXY</div>
+ <div id="NDPrototype274" class="NDPrototype WideForm"><div class="PSection PParameterSection CStyle"><table><tr><td class="PBeforeParameters"><span class="SHKeyword">inline</span> <span class="SHKeyword">void</span> VDP_SetAdjustOffsetXY(</td><td class="PParametersParentCell"><table class="PParameters"><tr><td class="PType first">i8&nbsp;</td><td class="PName last">x,</td></tr><tr><td class="PType first">i8&nbsp;</td><td class="PName last">y</td></tr></table></td><td class="PAfterParameters">)</td></tr></table></div></div>
+ <div class="CBody"><p>Adjustment of the display location on the screen (register 18). [MSX2/2+/TR]</p><div class="CHeading">Parameters</div><table class="CDefinitionList"><tr><td class="CDLEntry">x<div class="CDLParameterType">i8</div></td><td class="CDLDefinition"><p>Horizontal screen display position offset [-7:+8]</p></td></tr><tr><td class="CDLEntry">y<div class="CDLParameterType">i8</div></td><td class="CDLDefinition"><p>Vertical screen display position offset [-7:+8]</p></td></tr></table></div>
 </div>
 
 <a name="VDP_SetGrayScale"></a><a name="Topic536"></a><div class="CTopic TFunction LC">

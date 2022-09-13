@@ -13,6 +13,9 @@
 #include "memory.h"
 #include "bios_var.h"
 
+#define PSG_REG_IO_PORT_A	14
+#define PSG_REG_IO_PORT_B	15
+
 //-----------------------------------------------------------------------------
 // Constant data
 //-----------------------------------------------------------------------------
@@ -33,16 +36,12 @@ const IPM_Config g_DefaultConfig =
 
 #endif // INPUT_USE_MANAGER
 
-
 //-----------------------------------------------------------------------------
 //
 // Direct access to joystick
 //
 //-----------------------------------------------------------------------------
 #if (INPUT_USE_JOYSTICK || INPUT_USE_MANAGER)
-
-#define PSG_REG_IO_PORT_A	14
-#define PSG_REG_IO_PORT_B	15
 
 //-----------------------------------------------------------------------------
 // Get the current joystick information (bit=0: pressed)
@@ -56,33 +55,51 @@ const IPM_Config g_DefaultConfig =
 //            └────── Trigger B
 u8 Joystick_Read(u8 port) __FASTCALL
 {
-	port;
-	// FastCall
-	//	ld		l, port
+	port; // L
 	__asm
-		ld		a, #PSG_REG_IO_PORT_B
-		out		(P_PSG_REGS), a				// Select port B
-		in		a, (P_PSG_STAT)				// Read port B value
+		ld		a, #PSG_REG_IO_PORT_B	// Register 15
+		INPUT_DI
+		out		(P_PSG_REGS), a			// Select port B
+		in		a, (P_PSG_STAT)			// Read port B value
 		res		6, a
-		or		a, l
-		out		(P_PSG_DATA), a				// Write port B value
-		ld		a, #PSG_REG_IO_PORT_A
-		out		(P_PSG_REGS), a				// Select port A
-		in		a, (P_PSG_STAT)				// Read port A value
-		ld		l, a						// Return value
-	__endasm;		
+		or		a, l					// Select witch joystick connector is connected to PSG Port A
+		out		(P_PSG_DATA), a			// Write port B value
+
+		ld		a, #PSG_REG_IO_PORT_A	// Register 15
+		out		(P_PSG_REGS), a			// Select port A
+		INPUT_EI
+		in		a, (P_PSG_STAT)			// Read port A value
+		ld		l, a					// Return value
+	__endasm;
 }
+
+#if (INPUT_JOY_UPDATE)
+
+u8 g_JoyStats[2] = { 0x3F, 0x3F };
+u8 g_JoyStatsPrev[2] = { 0x3F, 0x3F };
+
+//-----------------------------------------------------------------------------
+// Update both joystick stats at once and store the result
+void Joystick_Update()
+{
+	g_JoyStatsPrev[0] = g_JoyStats[0];
+	g_JoyStats[0] = ~Joystick_Read(JOY_PORT_1);
+	g_JoyStatsPrev[1] = g_JoyStats[1];
+	g_JoyStats[1] = ~Joystick_Read(JOY_PORT_2);
+}
+
+#else // !(INPUT_JOY_UPDATE)
 
 //-----------------------------------------------------------------------------
 // Get current direction of the given joystick
 // Input  : JOY_PORT_1 or JOY_PORT_2
-u8 Joystick_GetDirection(u8 port) __FASTCALL
+/*u8 Joystick_GetDirection(u8 port) __FASTCALL
 {
 	u8 in = Joystick_Read(port);
 	in = ~in;
 	in &= JOY_INPUT_DIR_MASK;
 	return in;
-}
+}*/
 
 //-----------------------------------------------------------------------------
 // Get current trigger status of the given joystick (0: released; 1: pressed)
@@ -94,7 +111,136 @@ u8 Joystick_GetDirection(u8 port) __FASTCALL
 	return ((in & trigger) == 0);
 }*/
 
+#endif // (INPUT_JOY_UPDATE)
+
 #endif // (INPUT_USE_JOYSTICK || INPUT_USE_MANAGER)
+
+
+//-----------------------------------------------------------------------------
+//
+// Direct access to mouse
+//
+//-----------------------------------------------------------------------------
+#if (INPUT_USE_MOUSE)
+
+i8 g_Mouse_OffsetX;
+i8 g_Mouse_OffsetY;
+u8 g_Mouse_Buttons;
+
+//-----------------------------------------------------------------------------
+// 
+void Mouse_Read(u8 port, Mouse_State* data) __naked
+{
+		port; // A
+		data; // DE
+	__asm
+
+		WAIT1 = 10	// Short delay value
+		WAIT2 = 30	// Long delay value
+
+	// Routine to read the mouse by direct accesses (works on MSX1/2/2+/turbo R)
+	// Original function by FRS and/or MRC users (https://www.msx.org/wiki/Mouse/Trackball)
+	//
+	// Input:  HL = 09310h for mouse in port 1 (H = 10010011b, L = 00010000b)
+	//         HL = 0EC20h for mouse in port 2 (H = 11101100b, L = 00100000b)
+	// Output: D = X-offset, E = Y-offset (D = E = 255 if no mouse)
+	GTMOUS:
+		ld		l, a					// Backup input port value 
+
+		ld		a, (de)					// Get previous mouse button value
+		ld		i, a
+
+		// Get current Code/Kana LED state
+		ld		a, #PSG_REG_IO_PORT_B	// Select PSG R#15
+		INPUT_DI
+		out		(P_PSG_REGS), a
+		INPUT_EI
+		in		a, (P_PSG_STAT)			// Read from PSG R#15
+		and		#0x80					// Keep current Code/Kana LED state
+		or		l
+		ld		h, a
+		ld		l, a
+
+		// Read first X-offset nibble (bits 4-7)
+		ld		b, #WAIT2				// Long delay for first read
+		call	GTOFS2					// Get R#14 content
+		ld		(de), a					// Store mouse button value
+		and		#0x0F
+		rlca
+		rlca
+		rlca
+		rlca
+		ld		c, a					// Backup bits 4-7 of the X-offset
+		// Read second X-offset nibble (bits 0-3)
+		ld		a, h
+		and		#0b11001111
+		ld		l, a
+		call	GTOFST					// Read bits 0-3 of the X-offset
+		and		#0x0F
+		or		c
+		inc		de
+		ld		(de), a					// Store combined X-offset
+
+		// Read first Y-offset nibble (bits 7-4)
+		ld		l, h
+		call	GTOFST					// Read bits 7-4 of the y-offset
+		and		#0x0F
+		rlca
+		rlca
+		rlca
+		rlca
+		ld		c, a
+		// Read second Y-offset nibble (bits 0-3)
+		ld		a, h
+		and		#0b11001111
+		ld		l, a
+		call	GTOFST					// Read bits 3-0 of the y-offset
+		and		#0x0F
+		or		c
+		inc		de
+		ld		(de), a					// Store combined Y-offset
+
+		ld		a, i
+		inc		de
+		ld		(de), a					// Store previous mouse button value
+
+		ret
+
+	GTOFST:
+		ld		b, #WAIT1
+	GTOFS2:
+		ld		a, #PSG_REG_IO_PORT_B	// Select PSG R#15 for mouse
+		INPUT_DI
+		out		(P_PSG_REGS), a
+		ld		a, l					// Port 1=10010011b, 2=11101100b
+		out		(P_PSG_DATA), a			// Write to PSG R#15
+
+		call	WAITMS					// Extra delay because the mouse is slow
+
+		ld		a, #PSG_REG_IO_PORT_A	// Select PSG R#14 for mouse
+		out		(P_PSG_REGS), a
+		INPUT_EI
+		in		a, (P_PSG_STAT)			// Read to PSG R#14
+		ret
+
+	WAITMS:
+		ld		a, b
+	WTTR:
+		djnz	WTTR
+		.db		0xED, 0x55				// Back if Z80 (RETN on Z80, NOP on R800)
+		rlca
+		rlca
+		ld		b, a
+	WTTR2:
+		djnz	WTTR2
+		ld		b, a
+	WTTR3:
+		djnz	WTTR3
+		ret
+	__endasm;
+}
+
+#endif // (INPUT_USE_MOUSE)
 
 
 //-----------------------------------------------------------------------------
@@ -124,7 +270,7 @@ u8 Keyboard_Read(u8 row) __FASTCALL
 #if (INPUT_KB_UPDATE)
 //-----------------------------------------------------------------------------
 // Update all keyboard rows at once
-bool Keyboard_Update()
+void Keyboard_Update()
 {
 	for(u8 i = INPUT_KB_UPDATE_MIN; i <= INPUT_KB_UPDATE_MAX; ++i)	
 	{

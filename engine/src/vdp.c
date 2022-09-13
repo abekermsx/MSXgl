@@ -41,6 +41,32 @@
 #endif
 
 
+// Handle interruptions disabling
+#if (VDP_ISR_SAFE_MODE == VDP_ISR_SAFE_ALL)
+	#define VDP_DI_ALL		di
+	#define VDP_EI_ALL		ei
+	#define VDP_DI_DEF
+	#define VDP_EI_DEF
+#elif (VDP_ISR_SAFE_MODE == VDP_ISR_SAFE_DEFAULT)
+	#define VDP_DI_ALL
+	#define VDP_EI_ALL
+	#define VDP_DI_DEF		di
+	#define VDP_EI_DEF		ei
+#else // (VDP_ISR_SAFE_MODE == VDP_ISR_SAFE_NONE)
+	#define VDP_DI_ALL
+	#define VDP_EI_ALL
+	#define VDP_DI_DEF
+	#define VDP_EI_DEF
+#endif
+
+#if (VDP_ISR_SAFE_MODE == VDP_ISR_SAFE_NONE)
+	#define VDP_DI
+	#define VDP_EI
+#else
+	#define VDP_DI			di
+	#define VDP_EI			ei
+#endif
+
 //-----------------------------------------------------------------------------
 // PROTOTYPES
 //-----------------------------------------------------------------------------
@@ -153,17 +179,10 @@ void VDP_SetModeFlag(u8 flag)
 
 	// VDP register #0
 	u8 reg0 = g_VDP_REGSAV[0];
-#if (MSX_VERSION == MSX_1) // TMS 9918
-	reg0 &= 0b11111101;
-	flag >>= 1;
-	flag &= 0b00000010;
-	reg0 |= flag;
-#else // V9938/V9958
 	reg0 &= 0b11110001;
 	flag >>= 1;
 	flag &= 0b00001110;
 	reg0 |= flag;
-#endif
 	VDP_RegWriteBak(0, reg0);
 }
 
@@ -262,23 +281,24 @@ void VDP_WriteVRAM_16K(const u8* src, u16 dest, u16 count) __sdcccall(0)
 
 	__asm
 
-	#if ((VDP_USE_VALIDATOR) && (MSX_VERSION > MSX_1) && !(MSX_VERSION == MSX_12))
+		#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
+		// Reset VRAM address bit 14 to 16 (in R#14)
 		xor		a
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a
-	#endif
+		#endif
 
 		ld		iy, #2
 		add		iy, sp
 		// Setup address register 
 		ld		a, 2(iy)
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = (dest & 0xFF)
 		ld		a, 3(iy)
 		and		a, #0x3F
 		add		a, #F_VDP_WRIT
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI_DEF //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = ((dest >> 8) & 0x3F) + F_VDP_WRIT
 
 	#if ((MSX_VERSION == MSX_1) || (MSX_VERSION == MSX_12))
@@ -325,6 +345,7 @@ void VDP_WriteVRAM_16K(const u8* src, u16 dest, u16 count) __sdcccall(0)
 	#endif
 
 	wrt16_loop_end:
+		VDP_EI_ALL //~~~~~~~~~~~~~~~~~~~~~~~~~~
 	__endasm;
 }
 
@@ -344,17 +365,17 @@ void VDP_FillVRAM_16K(u8 value, u16 dest, u16 count) __naked
 	__asm
 		ld		c, a					// backup value
 
-	#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
-		// Reset R#14 value
+		#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
+		// Reset VRAM address bit 14 to 16 (in R#14)
 		xor		a
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a
-	#endif
+		#endif
 
 		// Setup destination address (LSB)
 		ld		a, e
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = (dest & 0x00FF);
 
 		// Setup destination address (MSB)
@@ -378,8 +399,9 @@ void VDP_FillVRAM_16K(u8 value, u16 dest, u16 count) __naked
 		djnz	fll16_loop_start		// Iner 8-bits loop						14/9 cc
 		dec		d
 		jp		nz, fll16_loop_start	// Outer 8-bits loop
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+	fll16_loop_end:
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		jp		(iy)
 	__endasm;
 }
@@ -401,17 +423,17 @@ void VDP_FastFillVRAM_16K(u8 value, u16 dest, u16 count) __naked
 	__asm
 		ld		l, a						// backup fill value
 
-	#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
-		// Reset R#14 value
+		#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
+		// Reset VRAM address bit 14 to 16 (in R#14)
 		xor		a
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a
-	#endif
+		#endif
 
 		// Setup destination address (LSB)
 		ld		a, e						// destination VRAM address LSB
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a				// RegPort = (dest & 0x00FF);
 
 		// Setup destination address (MSB)
@@ -481,7 +503,7 @@ void VDP_FastFillVRAM_16K(u8 value, u16 dest, u16 count) __naked
 		jp		nz, fastfill16_loop			// 11 cc	Outer 8-bits loop
 
 	fastfill16_end:
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		jp		(iy)						// 10 cc
 
 	__endasm;
@@ -503,23 +525,23 @@ void VDP_ReadVRAM_16K(u16 src, u8* dest, u16 count) __sdcccall(0)
 
 	__asm
 
-	#if ((VDP_USE_VALIDATOR) && (MSX_VERSION > MSX_1) && !(MSX_VERSION == MSX_12))
+		#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
+		// Reset VRAM address bit 14 to 16 (in R#14)
 		xor		a
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a
-	#endif
+		#endif
 
 		ld		iy, #2
 		add		iy, sp
 		// Setup address register 	
 		ld		a, 0(iy)
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// AddrPort = (srcLow & 0x00FF)
 		ld		a, 1(iy)
 		and		a, #0x3F
-		add		a, #F_VDP_READ
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI_DEF //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// AddrPort = ((srcLow >> 8) & 0x3F) + F_VDP_READ
 
 	#if ((MSX_VERSION == MSX_1) || (MSX_VERSION == MSX_12))
@@ -566,6 +588,7 @@ void VDP_ReadVRAM_16K(u16 src, u8* dest, u16 count) __sdcccall(0)
 	#endif
 
 	rd16_loop_end:
+		VDP_EI_ALL //~~~~~~~~~~~~~~~~~~~~~~~~~~
 	__endasm;
 }
 
@@ -577,34 +600,40 @@ void VDP_ReadVRAM_16K(u16 src, u8* dest, u16 count) __sdcccall(0)
 //
 // Return:
 //   Value read in VRAM
-u8 VDP_Peek_16K(u16 dest)
+u8 VDP_Peek_16K(u16 dest) __PRESERVES(b, c, d, e, iyl, iyh)
 {
 	dest; // HL
 
 	__asm
 
-	#if ((VDP_USE_VALIDATOR) && (MSX_VERSION > MSX_1) && !(MSX_VERSION == MSX_12))
-		// Reset R#14
+		#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
+		// Reset VRAM address bit 14 to 16 (in R#14)
 		xor		a
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a
-	#endif
+		#endif
 
 		// Set destination address bits 0~7 to port #1
 		ld		a, l
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// AddrPort = (srcLow & 0x00FF)
 
 		// Set destination address bits 8~13 to port #1
 		ld		a, h
-		and		a, #0x3F
-		add		a, #F_VDP_READ
-		out		(P_VDP_ADDR), a			// AddrPort = ((srcLow >> 8) & 0x3F) + F_VDP_READ
+		and		a, #0x3F				// F_VDP_READ
+		out		(P_VDP_ADDR), a			// 12cc		AddrPort = ((srcLow >> 8) & 0x3F) + F_VDP_READ
 
-		// Read data 	
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
-		in		a, (P_VDP_DATA)			// value = DataPort
+		// Wait for VDP to be ready
+		#if (((MSX_VERSION == MSX_1) || (MSX_VERSION == MSX_12)) && ((VDP_USE_MODE_G1) || (VDP_USE_MODE_G2))) // MSX1 G1&G2 mode have 29cc wait
+		add		hl, hl					// 12cc		For 29cc wait
+		#elif (((MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12)) && ((VDP_USE_MODE_T1) || (VDP_USE_MODE_T2))) // MSX2 T1&T2 mode have 20cc wait
+		nop								//  5cc		For 20cc wait
+		#endif
+
+		// Read data
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~ //  5cc
+		in		a, (P_VDP_DATA)			// 12cc		value = DataPort
 
 	__endasm;
 }
@@ -615,7 +644,7 @@ u8 VDP_Peek_16K(u16 dest)
 // Parameters:
 //   val	- Value to write in VRAM
 //   dest	- Desitation address in VRAM (14bits address form 16KB VRAM)
-void VDP_Poke_16K(u8 val, u16 dest)
+void VDP_Poke_16K(u8 val, u16 dest) __PRESERVES(c, h, l, iyl, iyh)
 {
 	val;  // A
 	dest; // DE
@@ -623,29 +652,34 @@ void VDP_Poke_16K(u8 val, u16 dest)
 	__asm
 		ld		b, a					// Backup A register
 
-	#if ((VDP_USE_VALIDATOR) && (MSX_VERSION > MSX_1) && !(MSX_VERSION == MSX_12))
-		// Reset R#14
+		#if ((VDP_USE_VALIDATOR) && (MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12))
+		// Reset VRAM address bit 14 to 16 (in R#14)
 		xor		a
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a
-	#endif
+		#endif
 
 		// Set destination address bits 0~7 to port #1
 		ld		a, e
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// AddrPort = (srcLow & 0x00FF)
 
 		// Set destination address bits 8~13 to port #1
 		ld		a, d
 		and		a, #0x3F
 		add		a, #F_VDP_WRIT
-		out		(P_VDP_ADDR), a			// AddrPort = ((srcLow >> 8) & 0x3F) + F_VDP_WRIT
+		out		(P_VDP_ADDR), a			// 12cc		AddrPort = ((srcLow >> 8) & 0x3F) + F_VDP_WRIT
+
+		// Wait for VDP to be ready
+		#if (((MSX_VERSION == MSX_1) || (MSX_VERSION == MSX_12)) && ((VDP_USE_MODE_G1) || (VDP_USE_MODE_G2))) // MSX1 G1&G2 mode have 29cc wait
+		inc 	de						//  7cc		For 29cc wait
+		#endif
 
 		// Write data 	
-		ld		a, b
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
-		out		(P_VDP_DATA), a			// DataPort = value
+		ld		a, b					//  5cc
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~ //  5cc
+		out		(P_VDP_DATA), a			// 12cc		DataPort = value
 
 	__endasm;
 }
@@ -698,10 +732,10 @@ void VDP_Poke_16K(u8 val, u16 dest)
 
 		// Setup incremental VDP port writing
 		ld		a, 3(iy)				// first register
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 		ld		a, #VDP_REG(17)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 
 		// Do incremental VDP port writing
@@ -719,7 +753,7 @@ void VDP_Poke_16K(u8 val, u16 dest)
 	.rept _n-1		\
 		outi		\
 	.endm			\
-	ei				\
+	VDP_EI			\
 	outi
 
 // Fast incremental write to VDP register with backup to RAM.
@@ -736,14 +770,14 @@ void VDP_Poke_16K(u8 val, u16 dest)
 #define ASM_REG_WRITE_INC(_addr, _reg, _count)		\
 	__asm											\
 		ld		a, #(_reg)							\
-		di											\
+		VDP_DI										\
 		out		(P_VDP_ADDR), a						\
 		ld		a, #VDP_REG(17)						\
-		ei											\
+		VDP_EI_DEF									\
 		out		(P_VDP_ADDR), a						\
 		ld		hl, #(_##_addr)						\
 		ld		c, #P_VDP_IREG						\
-		di											\
+		VDP_DI_DEF									\
 		OUTI(_count) ; 'ei' included				\
 	__endasm
 
@@ -751,13 +785,13 @@ void VDP_Poke_16K(u8 val, u16 dest)
 #define ASM_REG_WRITE_INC_HL(_reg, _count)			\
 	__asm											\
 		ld		a, #(_reg)							\
-		di											\
+		VDP_DI										\
 		out		(P_VDP_ADDR), a						\
 		ld		a, #VDP_REG(17)						\
-		ei											\
+		VDP_EI_DEF									\
 		out		(P_VDP_ADDR), a						\
 		ld		c, #P_VDP_IREG						\
-		di											\
+		VDP_DI_DEF									\
 		OUTI(_count) ; 'ei' included				\
 	__endasm
 
@@ -861,12 +895,12 @@ void VDP_SetModeGraphic7()
 //
 // Parameters:
 //   stat - Status register number (0-9)
-u8 VDP_ReadStatus(u8 stat) __FASTCALL
+u8 VDP_ReadStatus(u8 stat) __PRESERVES(b, c, d, e, h, iyl, iyh)
 {
-	stat; // L
+	stat; // A
 	__asm
-		ld		a, l
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+	#if (VDP_USE_RESTORE_S0)
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 		ld		a, #VDP_REG(15)
 		out		(P_VDP_ADDR), a
@@ -876,8 +910,17 @@ u8 VDP_ReadStatus(u8 stat) __FASTCALL
 		xor		a
 		out		(P_VDP_ADDR), a
 		ld		a, #VDP_REG(15)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR),a
+		ld		a, l
+	#else
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		out		(P_VDP_ADDR), a
+		ld		a, #VDP_REG(15)
+		out		(P_VDP_ADDR), a
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		in		a, (P_VDP_STAT)			// return value
+	#endif
 	__endasm;
 }
 
@@ -895,20 +938,21 @@ void VDP_SetAdjustOffset(u8 offset)
 // Set a new color palette from index 1 to 15 [MSX2/2+/TR]
 // @param		pal			Address of the palette in RAM (table of 15 * 2 bytes)
 // 						Format : [0:5|green:3|0|red:3|0|blue:3]
-void VDP_SetPalette(const u8* pal) __FASTCALL
+void VDP_SetPalette(const u8* pal) __FASTCALL __PRESERVES(d, e, iyl, iyh)
 {
 	pal; // HL
 	__asm
 		ld		a, #1
-		di  //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI  //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 		ld		a, #VDP_REG(16)
-		ei  //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI_DEF  //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 
 		ld		c, #P_VDP_PAL
 		ld		b, #30
 		otir
+		VDP_EI_ALL  //~~~~~~~~~~~~~~~~~~~~~~~~~~
 	__endasm;
 }
 
@@ -1009,7 +1053,7 @@ void VDP_WriteVRAM_128K(const u8* src, u16 destLow, u8 destHigh, u16 count) __sd
 		rlca
 		and		a, #0x03
 		add		a, c
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = (page << 2) + (dest >> 14)
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a			// RegPort = VDP_REG(14)
@@ -1018,7 +1062,7 @@ void VDP_WriteVRAM_128K(const u8* src, u16 destLow, u8 destHigh, u16 count) __sd
 		ld		a, 3(iy)
 		and		a, #0x3f
 		add		a, #F_VDP_WRIT
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI_DEF //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = ((dest >> 8) & 0x3F) + F_VDP_WRIT
 		// while(count--) DataPort = *src++;
 		ld		l, 0(iy)				// source address
@@ -1042,6 +1086,7 @@ void VDP_WriteVRAM_128K(const u8* src, u16 destLow, u8 destHigh, u16 count) __sd
 		jp		wrt_loop_start
 
 	wrt_loop_end:
+		VDP_EI_ALL //~~~~~~~~~~~~~~~~~~~~~~~~~~
 	__endasm;
 }
 
@@ -1073,7 +1118,7 @@ void VDP_FillVRAM_128K(u8 value, u16 destLow, u8 destHigh, u16 count) __sdcccall
 		rlca
 		and		a, #0x03
 		add		a, c
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = (page << 2) + (dest >> 14);
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_ADDR), a			// RegPort = VDP_REG(14);
@@ -1082,7 +1127,7 @@ void VDP_FillVRAM_128K(u8 value, u16 destLow, u8 destHigh, u16 count) __sdcccall
 		ld		a, 2(iy)
 		and		a, #0x3F
 		add		a, #F_VDP_WRIT
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI_DEF //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// RegPort = ((dest >> 8) & 0x3F) + F_VDP_WRIT;
 		// while(count--) DataPort = value;
 		ld		e, 4(iy)				// count
@@ -1098,6 +1143,8 @@ void VDP_FillVRAM_128K(u8 value, u16 destLow, u8 destHigh, u16 count) __sdcccall
 		dec		d
 		jp		nz, fll_loop_start
 
+	fll_loop_end:
+		VDP_EI_ALL //~~~~~~~~~~~~~~~~~~~~~~~~~~
 	__endasm;
 }
 
@@ -1123,7 +1170,7 @@ void VDP_ReadVRAM_128K(u16 srcLow, u8 srcHigh, u8* dest, u16 count) __sdcccall(0
 		rlca
 		and		a, #0x03
 		add		a, c
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// AddrPort = (srcHigh << 2) + (srcLow >> 14)
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a			// RegPort  = (u8)(VDP_REG(14))
@@ -1131,8 +1178,8 @@ void VDP_ReadVRAM_128K(u16 srcLow, u8 srcHigh, u8* dest, u16 count) __sdcccall(0
 		out		(P_VDP_ADDR), a			// AddrPort = (srcLow & 0xFF)
 		ld		a, 1(iy)
 		and		a, #0x3f
-		add		a, #F_VDP_READ
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		// add		a, #F_VDP_READ
+		VDP_EI_DEF //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a			// AddrPort = ((srcLow >> 8) & 0x3F) + F_VDP_READ
 		// while(count--) *src++ = DataPort;
 		ld		l, 3(iy)				// source address
@@ -1156,6 +1203,7 @@ void VDP_ReadVRAM_128K(u16 srcLow, u8 srcHigh, u8* dest, u16 count) __sdcccall(0
 		jp		rd_loop_start
 		
 	rd_loop_end:
+		VDP_EI_ALL //~~~~~~~~~~~~~~~~~~~~~~~~~~
 	__endasm;
 }
 
@@ -1186,7 +1234,7 @@ void VDP_Poke_128K(u8 val, u16 destLow, u8 destHigh) __sdcccall(0)
 		rlca
 		and		a, #0x03
 		add		a, c
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_REG), a			// RegPort = (destHigh << 2) + (destLow >> 14);
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a			// RegPort = VDP_REG(14);
@@ -1199,12 +1247,12 @@ void VDP_Poke_128K(u8 val, u16 destLow, u8 destHigh) __sdcccall(0)
 		ld		a, 2(iy)
 		and		a, #0x3F
 		add		a, #F_VDP_WRIT
-		out		(P_VDP_ADDR), a			// AddrPort = ((destLow >> 8) & 0x3F) + F_VDP_WRIT;
-		
+		out		(P_VDP_ADDR), a			// 12cc		AddrPort = ((destLow >> 8) & 0x3F) + F_VDP_WRIT;
+
 		// Write data
-		ld		a, 0(iy)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
-		out		(P_VDP_DATA), a			// DataPort = val
+		ld		a, 0(iy)				// 21cc
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~ //  5cc
+		out		(P_VDP_DATA), a			// 12cc		DataPort = val
 
 	__endasm;
 }
@@ -1237,7 +1285,7 @@ u8 VDP_Peek_128K(u16 srcLow, u8 srcHigh) __sdcccall(0)
 		rlca
 		and		a, #0x03
 		add		a, c
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_REG), a			// RegPort = (destHigh << 2) + (destLow >> 14);
 		ld		a, #VDP_REG(14)
 		out		(P_VDP_REG), a			// RegPort = VDP_REG(14);
@@ -1250,11 +1298,16 @@ u8 VDP_Peek_128K(u16 srcLow, u8 srcHigh) __sdcccall(0)
 		ld		a, 1(iy)
 		and		a, #0x3F
 		add		a, #F_VDP_WRIT
-		out		(P_VDP_ADDR), a			// AddrPort = ((destLow >> 8) & 0x3F) + F_VDP_WRIT;
-		
-		// Read data 	
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
-		in		a, (P_VDP_DATA)			// value = DataPort
+		out		(P_VDP_ADDR), a			// 12cc		AddrPort = ((destLow >> 8) & 0x3F) + F_VDP_WRIT;
+
+		// Wait for VDP to be ready
+		#if (((MSX_VERSION != MSX_1) && (MSX_VERSION != MSX_12)) && ((VDP_USE_MODE_T1) || (VDP_USE_MODE_T2))) // MSX2 T1&T2 mode have 20cc wait
+		nop								//  5cc		For 20cc wait
+		#endif
+
+		// Read data
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~ //  5cc
+		in		a, (P_VDP_DATA)			// 12cc		value = DataPort
 		ld		l, a
 
 	__endasm;
@@ -1276,13 +1329,14 @@ u8 VDP_Peek_128K(u16 srcLow, u8 srcHigh) __sdcccall(0)
 
 //-----------------------------------------------------------------------------
 // Wait for previous VDP command to be finished
-void VDP_CommandWait()
+void VDP_CommandWait() __PRESERVES(b, c, d, e, h, l, iyl, iyh)
 {
 	__asm
 	wait_vdp_ready:
-		// Set current status ragister to S#2
+	#if (VDP_USE_RESTORE_S0)
+		// Set current status register to S#2
 		ld		a, #2
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(15)
 		out		(P_VDP_REG), a
@@ -1292,8 +1346,19 @@ void VDP_CommandWait()
 		ld		a, #0				// don't use XOR here to keep C flag from RRA alive
 		out		(P_VDP_REG), a
 		ld		a, #VDP_REG(15)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_REG), a
+	#else
+		// Set current status register to S#2
+		ld		a, #2
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		out		(P_VDP_REG), a
+		ld		a, #VDP_REG(15)
+		out		(P_VDP_REG), a
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		in		a, (P_VDP_STAT)		// get S#2 value
+		rra							// check CE (bit#0)
+	#endif
 		jp		c, wait_vdp_ready	// CE==1 ? command not finished
 	__endasm;
 }
@@ -1318,19 +1383,18 @@ void VPD_CommandSetupR36()
 // Write to VRAM command loop
 // @param		addr		The address in RAM from where read data to be copied in VRAM
 // 						(First byte of data was sent in the command execution)
-void VPD_CommandWriteLoop(const u8* addr) __FASTCALL
+void VPD_CommandWriteLoop(const u8* addr) __FASTCALL __PRESERVES(b, d, e, iyl, iyh)
 {
-	addr;
+	addr; // HL
 	
 	__asm
- //		ld		hl, address			// FastCall
 		// Set indirect register write to R#44
 		ld  	a, #VDP_REG(44)
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out 	(P_VDP_REG), a
 		ld  	a, #VDP_REG(17)
-		out 	(P_VDP_REG), a		
-		// Set current status ragister to S#2
+		out 	(P_VDP_REG), a
+		// Set current status register to S#2
 		ld  	a, #2
 		out 	(P_VDP_REG), a
 		ld  	a, #VDP_REG(15)
@@ -1348,11 +1412,15 @@ void VPD_CommandWriteLoop(const u8* addr) __FASTCALL
 
 	write_finished:
 		// Reset current status register to S#0
+	#if (VDP_USE_RESTORE_S0)
 		xor 	a	
 		out 	(P_VDP_REG), a
 		ld  	a, #VDP_REG(15)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out 	(P_VDP_REG), a
+	#else
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
+	#endif
 	__endasm;
 }
 
@@ -1562,7 +1630,7 @@ void VDP_SetMode(const u8 mode)
 #if (VDP_USE_DEFAULT_SETTINGS)
 	VDP_EnableDisplay(TRUE);
 	VDP_EnableVBlank(TRUE);
-#if ((MSX_VERSION >= MSX_2) && ((MSX_VERSION != MSX_12)))
+#if ((MSX_VERSION != MSX_1) && ((MSX_VERSION != MSX_12)))
 	#if (VDP_INIT_50HZ == VDP_INIT_ON)
 		VDP_SetFrequency(VDP_FREQ_50HZ);
 	#elif (VDP_INIT_50HZ == VDP_INIT_OFF)
@@ -1601,7 +1669,7 @@ u8 VDP_GetVersion() __naked
 		call	VDP_IsTMS9918A			// use a different way to detect TMS9918A
 		ret		z
 		ld		a, #1					// select s#1
-		di
+		VDP_DI
 		out		(P_VDP_ADDR), a
 		ld		a, #VDP_REG(15)
 		out		(P_VDP_ADDR), a
@@ -1612,7 +1680,7 @@ u8 VDP_GetVersion() __naked
 		xor		a						// select s#0 as required by BIOS
 		out		(P_VDP_ADDR), a
 		ld		a, #VDP_REG(15)
-		ei
+		VDP_EI
 		out		(P_VDP_ADDR), a
 		ex		af, af'					; '
 		ret		nz						// return VDP ID for V9958 or higher
@@ -1630,7 +1698,7 @@ u8 VDP_GetVersion() __naked
 	// f <- z: TMS9918A, nz: V99X8
 	VDP_IsTMS9918A:
 		in		a, (P_VDP_ADDR)			// read s#0, make sure interrupt flag is reset
-		di
+		VDP_DI
 	VDP_IsTMS9918A_Wait:
 		in		a,(P_VDP_ADDR)			// read s#0
 		and		a						// wait until interrupt flag is set
@@ -1648,7 +1716,7 @@ u8 VDP_GetVersion() __naked
 		ld		a, (0xF3E6)
 		out		(P_VDP_ADDR), a			// restore r#7 if it mirrored (small flash visible)
 		ld		a, #VDP_REG(7)
-		ei
+		VDP_EI
 		out		(P_VDP_ADDR), a
 		ex		af, af'					; '
 		and		#0b01000000				// check if bit 6 was 0 (s#0 5S) or 1 (s#2 VR)
@@ -1663,7 +1731,7 @@ u8 VDP_GetVersion() __naked
 // Parameters:
 //   reg   - Register number
 //   value - Value to set
-void VDP_RegWrite(u8 reg, u8 value)
+void VDP_RegWrite(u8 reg, u8 value) __PRESERVES(b, c, d, e, iyl, iyh)
 {
 	reg;	// A
 	value;	// L
@@ -1671,11 +1739,11 @@ void VDP_RegWrite(u8 reg, u8 value)
 	__asm
 		ld		h, a					// Register number
 		ld		a, l					// Value
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 		ld		a, h
 		add		#0x80					// @todo Can be optimize by including 80h in the register number ; 33cc -> 25cc (warning for MSX1 VRAM write timing)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 	__endasm;
 }
@@ -1686,7 +1754,7 @@ void VDP_RegWrite(u8 reg, u8 value)
 // Parameters:
 //   reg   - Register number
 //   value - Value to set
-void VDP_RegWriteBak(u8 reg, u8 value)
+void VDP_RegWriteBak(u8 reg, u8 value) __PRESERVES(d, e, iyl, iyh)
 {
 	reg;	// A
 	value;	// L
@@ -1700,11 +1768,11 @@ void VDP_RegWriteBak(u8 reg, u8 value)
 		add		hl, bc
 		ld		(hl), a
 		// Write to register
-		di //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_DI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 		ld		a, c
 		add		#0x80					// @todo Can be optimize by including 80h in the register number ; 33cc -> 25cc (warning for MSX1 VRAM write timing)
-		ei //~~~~~~~~~~~~~~~~~~~~~~~~~~
+		VDP_EI //~~~~~~~~~~~~~~~~~~~~~~~~~~
 		out		(P_VDP_ADDR), a
 	__endasm;
 }
@@ -1730,10 +1798,10 @@ void VDP_RegWriteBakMask(u8 reg, u8 mask, u8 flag)
 #define ASM_REG_WRITE(_reg, _val)					\
 	__asm											\
 		ld		a, _val								\
-		di											\
+		VDP_DI										\
 		out		(P_VDP_ADDR), a						\
 		ld		a, #VDP_REG(_reg)					\
-		ei											\
+		VDP_EI										\
 		out		(P_VDP_ADDR), a						\
 	__endasm
 
@@ -2107,11 +2175,11 @@ void VDP_SendSpriteAttribute(u8 index) __FASTCALL
 		
 		ld		hl, #(_g_VDP_Sprite)
 		ld		c, #P_VDP_DATA 
-		di
+		VDP_DI
 		outi
 		outi
 		outi
-		ei
+		VDP_EI
 		outi
 	__endasm;
 }

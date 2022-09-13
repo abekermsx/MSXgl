@@ -1,5 +1,5 @@
 :: ____________________________
-:: ██▀▀█▀▀██▀▀▀▀▀▀▀█▀▀█        │   ▄▄▄                ▄▄      
+:: ██▀▀█▀▀██▀▀▀▀▀▀▀█▀▀█        │   ▄▄▄                ▄▄
 :: ██  ▀  █▄  ▀██▄ ▀ ▄█ ▄▀▀ █  │  ▀█▄  ▄▀██ ▄█▄█ ██▀▄ ██  ▄███
 :: █  █ █  ▀▀  ▄█  █  █ ▀▄█ █▄ │  ▄▄█▀ ▀▄██ ██ █ ██▀  ▀█▄ ▀█▄▄
 :: ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀────────┘                 ▀▀
@@ -24,7 +24,7 @@ cls
 set Pause=1
 echo No valide sample selected...
 echo Available samples:
-for /R .\ %%G in (*.c) do call :DisplayFilter %%~nG
+for %%G in (*.c) do call :DisplayFilter %%~nG
 set /p Name=Enter a sample: 
 for %%I in ("%Name%") do (set Input=%%~nI)
 goto :CheckInput
@@ -48,7 +48,7 @@ goto :CheckInput
 ::*****************************************************************************
 :: TOOLS SETTINGS
 ::*****************************************************************************
-REM set Emulator=%ToolsDir%\OpenMSX\openmsx.exe
+set Emulator=%ToolsDir%\OpenMSX\openmsx.exe
 REM set Emulator=%ToolsDir%\Emulicious\Emulicious.exe
 REM set Emulator=%ToolsDir%\BlueMSX\blueMSX.exe
 REM set Emulator=%ToolsDir%\MEISEI\meisei.exe
@@ -67,6 +67,8 @@ set ProjModules=%ProjName%
 set ProjSegments=%ProjName%
 :: List of library modules to build
 set LibModules=system,bios,vdp,print,input,memory,math,draw
+:: Additional sources
+set AddSources=
 
 :: MSX version:
 :: - 1		MSX 1
@@ -97,19 +99,30 @@ set Target=ROM_32K
 if not "%2"=="" set Target=%2
 :: ROM mapper size (from 64 to 4096). Must be a multiple of 8 or 16 depending on the mapper type
 set ROMSize=
+
 :: Install BDOS driver for ROM program? (0=false, 1=true)
 set InstallBDOS=0
-:: Use banked call (and trampoline functions)
+:: Set RAM in slot 0 and install ISR there
+:: - 0				Don't install
+:: - 1 | VBLANK		Add ISR that support V-blank interruption
+:: - HBLANK			Add ISR that support V-blank and H-blank interruption
+set InstallRAMISR=0
+:: Use banked call and trampoline functions (0=false, 1=true)
 set BankedCall=0
-:: Overwrite RAM starting address
+:: Overwrite RAM starting address (e.g. 0xE0000 for 8K RAM machine)
 set ForceRamAddr=
+:: Data to copy to disk (comma separated list)
+set DiskFiles=
 
+::*******************************************************************************
+:: MAKE SETTINGS
+::*******************************************************************************
+
+:: Generate MSXgl static library (0=false, 1=true)
+set BuildLibrary=1
 :: Set debug flag (0=false, 1=true)
-set Debug=1
-:: Optim:
-:: - Default
-:: - Speed
-:: - Size
+set Debug=0
+:: Code optimization (Default, Speed or Size)
 set Optim=Speed
 :: Additionnal compilation flag
 set CompileOpt=
@@ -117,6 +130,12 @@ set CompileOpt=
 set CompileSkipOld=0
 :: Verbose mode (0=false, 1=true)
 set Verbose=0
+:: Additionnal link flag
+set LinkOpt=
+
+::*******************************************************************************
+:: EMULATOR SETINGS
+::*******************************************************************************
 
 :: Emulator options (0=false, 1=true)
 set EmulMachine=0
@@ -127,6 +146,9 @@ set EmulDebug=0
 set EmulSCC=0
 set EmulMSXMusic=0
 set EmulMSXAudio=0
+:: Plug device to emulator general purpose port: Joystick, Mouse, Keyboard (fake joystick)
+set EmulPortA=
+set EmulPortB=
 :: Emulator extra parameters to be add to command-line
 set EmulExtraParam=
 
@@ -141,7 +163,7 @@ set DoCompile=1
 set DoMake=1
 set DoPackage=1
 set DoDeploy=1
-set DoRun=0
+set DoRun=1
 
 ::*****************************************************************************
 :: START BUILD

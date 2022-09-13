@@ -184,11 +184,11 @@
 // VDP MODULE
 //-----------------------------------------------------------------------------
 
-// VDP_VRAM
+// VDP_VRAM options
 #define VDP_VRAM_ADDR_14			0 // Use 14-bits 16K VRAM addressing for MSX 1 (u16)
 #define VDP_VRAM_ADDR_17			1 // Use 17-bits 128K VRAM addressing for MSX 2/2+/Turbo-R (u32)
 
-// VDP_UNIT
+// VDP_UNIT options
 #define VDP_UNIT_U8					0 // X and Y use 8-bits values
 #define VDP_UNIT_X16				1 // X use 16-bits and Y use 8-bits values
 #define VDP_UNIT_Y16				2 // X use 8-bits and Y use 16-bits values
@@ -199,6 +199,11 @@
 #define VDP_INIT_ON					0b01 // Force option to be enable
 #define VDP_INIT_AUTO				0b10 // Determining the best value for the context
 #define VDP_INIT_DEFAULT			0b11 // Keep default value
+
+// VDP_ISR_SAFE_MODE options
+#define VDP_ISR_SAFE_NONE			0 // No ISR protection (for program not using VDP interruption)
+#define VDP_ISR_SAFE_DEFAULT		1 // Protect only VDP register pair writing (default behavior; ISR can read/write registers but VRAM ones)
+#define VDP_ISR_SAFE_ALL			2 // Protect all VDP writing process
 
 //-----------------------------------------------------------------------------
 // DRAW MODULE
@@ -269,12 +274,15 @@
 #define GAMEPAWN_COL_2P_MIDDLE		(GAMEPAWN_COL_25|GAMEPAWN_COL_75)
 #define GAMEPAWN_COL_2P_CORNER		(GAMEPAWN_COL_0|GAMEPAWN_COL_100)
 
+#define GAMEPAWN_BOUND_CUSTOM		0xFF // Use variable bound value for each pawn
+
 //-----------------------------------------------------------------------------
 // MISC
 //-----------------------------------------------------------------------------
 
 // DEBUG_TOOL
-#define DEBUG_DISABLE				0 // No profiler
-#define DEBUG_OPENMSX_G				1 // Grauw profile script for OpenMSX
-#define DEBUG_OPENMSX_S				2 // Salutte profile script for OpenMSX
-#define DEBUG_EMULICIOUS			3 // Profile script for Emulicious
+#define DEBUG_DISABLE				0  // No support for debug/profile tool
+#define DEBUG_OPENMSX				10 // Support for OpenMSX default debugger (no profiler)
+#define DEBUG_OPENMSX_G				11 // Grauw profile script for OpenMSX
+#define DEBUG_OPENMSX_S				12 // Salutte profile script for OpenMSX
+#define DEBUG_EMULICIOUS			20 // Support for Emulicious debugger/profiler
