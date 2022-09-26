@@ -18,10 +18,12 @@
 // DEFINES
 //=============================================================================
 
-#define V9_PALETTE_YSGBR_16			0
-#define V9_PALETTE_GBR_16			1
-#define V9_PALETTE_RGB_24			2
+#define V9_INT_PROTECT				1
 
+// Palette input data format
+#define V9_PALETTE_YSGBR_16			0	// [Ys|G|G|G|G|G|R|R] [R|R|R|B|B|B|B|B]
+#define V9_PALETTE_GBR_16			1	// [0|G|G|G|G|G|R|R] [R|R|R|B|B|B|B|B]
+#define V9_PALETTE_RGB_24			2	// [0|0|0|R|R|R|R|R] [0|0|0|G|G|G|G|G] [0|0|0|B|B|B|B|B]
 
 // Palette data format (can be YsGRB 16-bits or RGB 24-bits)
 #define V9_PALETTE_MODE				V9_PALETTE_RGB_24
@@ -126,9 +128,86 @@ void V9_SetRegister(u8 reg, u8 val) __PRESERVES(b, c, d, e, h, iyl, iyh);
 // Get register value
 u8 V9_GetRegister(u8 reg) __PRESERVES(b, c, d, e, h, l, iyl, iyh);
 
-// Function: 
-//
+// Function: V9_SetFlag
+// Helper function to change some bits in a given register
+// The function a register value, mask the given bits, add the new value, than set the register
 inline void V9_SetFlag(u8 reg, u8 mask, u8 flag) { V9_SetRegister(reg, V9_GetRegister(reg) & (~mask) | flag); }
+
+//-----------------------------------------------------------------------------
+// Group: VRAM access
+//-----------------------------------------------------------------------------
+
+// Function: V9_SetWriteAddress
+// Initialize VRAM address for writing
+void V9_SetWriteAddress(u32 addr) __PRESERVES(b, iyl, iyh);
+
+// Function: V9_SetReadAddress
+// Initialize VRAM address for reading
+void V9_SetReadAddress(u32 addr) __PRESERVES(b, iyl, iyh);
+
+// Function: V9_FillVRAM_CurrentAddr
+// 
+void V9_FillVRAM_CurrentAddr(u8 value, u16 count);
+
+// Function: V9_FillVRAM16_CurrentAddr
+// 
+void V9_FillVRAM16_CurrentAddr(u16 value, u16 count);
+
+// Function: V9_WriteVRAM_CurrentAddr
+//
+void V9_WriteVRAM_CurrentAddr(const u8* src, u16 count);
+
+// Function: V9_ReadVRAM_CurrentAddr
+//
+void V9_ReadVRAM_CurrentAddr(const u8* dest, u16 count);
+
+// Function: V9_Poke_CurrentAddr
+//
+void V9_Poke_CurrentAddr(u8 val) __PRESERVES(b, c, d, e, h, l, iyl, iyh);
+
+// Function: V9_Poke16_CurrentAddr
+//
+void V9_Poke16_CurrentAddr(u16 val) __PRESERVES(b, c, d, e, iyl, iyh);
+
+// Function: V9_Peek_CurrentAddr
+//
+u8 V9_Peek_CurrentAddr() __PRESERVES(b, c, d, e, h, l, iyl, iyh);
+
+// Function: V9_Peek16_CurrentAddr
+//
+u8 V9_Peek16_CurrentAddr() __PRESERVES(b, c, h, l, iyl, iyh);
+
+// Function: V9_FillVRAM
+//
+inline void V9_FillVRAM(u32 addr, u8 value, u16 count) { V9_SetWriteAddress(addr); V9_FillVRAM_CurrentAddr(value, count); }
+
+// Function: V9_FillVRAM16
+//
+inline void V9_FillVRAM16(u32 addr, u16 value, u16 count) { V9_SetWriteAddress(addr); V9_FillVRAM16_CurrentAddr(value, count); }
+
+// Function: V9_WriteVRAM
+//
+inline void V9_WriteVRAM(u32 addr, const u8* src, u16 count) { V9_SetWriteAddress(addr); V9_WriteVRAM_CurrentAddr(src, count); }
+
+// Function: V9_ReadVRAM
+//
+inline void V9_ReadVRAM(u32 addr, const u8* dest, u16 count) { V9_SetReadAddress(addr); V9_ReadVRAM_CurrentAddr(dest, count); }
+
+// Function: V9_Poke
+//
+inline void V9_Poke(u32 addr, u8 val) { V9_SetWriteAddress(addr); V9_Poke_CurrentAddr(val); }
+
+// Function: V9_Poke16
+//
+inline void V9_Poke16(u32 addr, u16 val) { V9_SetWriteAddress(addr); V9_Poke16_CurrentAddr(val); }
+
+// Function: V9_Peek
+//
+inline u8 V9_Peek(u32 addr) { V9_SetWriteAddress(addr); return V9_Peek_CurrentAddr(); }
+
+// Function: V9_Peek16
+//
+inline u16 V9_Peek16(u32 addr) { V9_SetWriteAddress(addr); return V9_Peek16_CurrentAddr(); }
 
 //-----------------------------------------------------------------------------
 // Group: Setting
@@ -154,13 +233,104 @@ inline void V9_SetImageSpaceWidth(u8 width) { V9_SetRegister(6, V9_GetRegister(6
 // Get number of pixels in X direction of image space
 inline u8 V9_GetImageSpaceWidth() { return V9_GetRegister(6) & (~V9_R06_WIDH_MASK); }
 
-// Function: 
+// Function: V9_SetDisplayEnable
 //
 inline void V9_SetDisplayEnable(bool enable) { V9_SetFlag(8, V9_R08_DISP_ON, enable ? V9_R08_DISP_ON : 0); }
 
-// Function: 
+// Function: V9_SetBackgroundColor
+// Set background color
+inline void V9_SetBackgroundColor(u8 color) { V9_SetRegister(15, color); }
+
+// Function: V9_SetAdjustOffset
+// Adjustment of the display location on the screen (register 18). [MSX2/2+/TR]
 //
-inline void V9_SetSpriteEnable(bool enable) { V9_SetFlag(8, V9_R08_SPD_OFF, enable ? 0 : V9_R08_SPD_OFF); }
+// Parameters:
+//   offset - Screen display position offset (MSB 4-bits: vertical offset, LSB 4-bits: horizontal offset)
+inline void V9_SetAdjustOffset(u8 offset) { V9_SetRegister(16, offset); }
+
+// Function: V9_SetAdjustOffsetXY
+// Adjustment of the display location on the screen (register 18). [MSX2/2+/TR]
+//
+// Parameters:
+//   x - Horizontal screen display position offset [-7:+8]
+//   y - Vertical screen display position offset [-7:+8]
+inline void V9_SetAdjustOffsetXY(i8 x, i8 y) { V9_SetAdjustOffset(((-x) & 0x0F) | (((-y) & 0x0F) << 4)); }
+
+// Function: V9_SetLayerPriority
+// Set layer priority for P1 mode
+inline void V9_SetLayerPriority(u8 x, u8 y) { V9_SetRegister(27, (y << 2) + x); }
+
+//-----------------------------------------------------------------------------
+// Group: Status
+//-----------------------------------------------------------------------------
+
+// Function: V9_GetStatus
+// Get status port value
+inline u8 V9_GetStatus() { return V9_GetPort(5); }
+
+// Function: V9_IsVBlank
+// Is vertical non-display period
+inline bool V9_IsVBlank() { return V9_GetStatus() & V9_P05_VR; }
+
+// Function: V9_IsHBlank
+// Is horizontal non-display period
+inline bool V9_IsHBlank() { return V9_GetStatus() & V9_P05_HR; }
+
+// Function: V9_IsCmdDataReady
+// Check if command data transfer ready
+inline bool V9_IsCmdDataReady() { return V9_GetStatus() & V9_P05_TR; }
+
+// Function: V9_IsCmdRunning
+// Check if a command is in process
+inline bool V9_IsCmdRunning() { return V9_GetStatus() & V9_P05_CE; }
+
+// Function: V9_IsSecondField
+// Check if render is in the second field period during interlace
+inline bool V9_IsSecondField() { return V9_GetStatus() & V9_P05_E0; }
+
+//-----------------------------------------------------------------------------
+// Group: Interrupt
+//-----------------------------------------------------------------------------
+
+#define V9_INT_VBLANK				V9_P06_VI
+#define V9_INT_HBLANK				V9_P06_HI
+#define V9_INT_CMDEND				V9_P06_CE
+
+// Function: V9_SetInterrupt
+// Set interruption flags
+inline void V9_SetInterrupt(u8 flags) { V9_SetRegister(9, flags); }
+
+// Function: V9_DisableInterrupt
+// Disable interruption
+inline void V9_DisableInterrupt() { V9_SetRegister(9, 0); }
+
+// Function: V9_SetVBlankInterrupt
+// Set vertical blank interruption 
+inline void V9_SetVBlankInterrupt(bool enable) { V9_SetFlag(9, V9_R08_IEV_ON, enable ? V9_R08_IEV_ON : 0); }
+
+// Function: V9_SetHBlankInterrupt
+// Set horizontal blank interruption 
+inline void V9_SetHBlankInterrupt(bool enable) { V9_SetFlag(9, V9_R08_IEH_ON, enable ? V9_R08_IEH_ON : 0); }
+
+// Function: V9_SetCmdEndInterrupt
+// Set command end interruption 
+inline void V9_SetCmdEndInterrupt(bool enable) { V9_SetFlag(9, V9_R08_IECE_ON, enable ? V9_R08_IECE_ON : 0); }
+
+// Function: V9_SetInterruptLine
+// Specification of vertical position where display position interrupt occurs (Specified by means of line No. with the display start line as "0".)
+inline void V9_SetInterruptLine(u16 line) { V9_SetRegister(10, line & 0xFF); V9_SetRegister(11, line >> 8); }
+
+// Function: V9_SetInterruptEveryLine
+// Set line interrupt on every line
+inline void V9_SetInterruptEveryLine() { V9_SetRegister(11, V9_R09_EVERYLINE); }
+
+// Function: V9_SetInterruptX
+// Specification of horizontal position where display position interrupt occurs (Specified by unit of 64 master clock with the display start position as "0".)
+inline void V9_SetInterruptX(u8 x) { V9_SetRegister(12, x); }
+
+//-----------------------------------------------------------------------------
+// Group: Scrolling
+//-----------------------------------------------------------------------------
 
 // Function: V9_SetScrollingX
 //
@@ -174,57 +344,101 @@ void V9_SetScrollingY(u16 y);
 //
 inline void V9_SetScrolling(u16 x, u16 y) { V9_SetScrollingX(x);  V9_SetScrollingY(y); }
 
+// Function: V9_SetScrollingBX
+//
+void V9_SetScrollingBX(u16 x);
+
+// Function: V9_SetScrollingBY
+//
+void V9_SetScrollingBY(u16 y);
+
+// Function: V9_SetScrollingB
+//
+inline void V9_SetScrollingB(u16 x, u16 y) { V9_SetScrollingBX(x);  V9_SetScrollingBY(y); }
+
 //-----------------------------------------------------------------------------
-// Group: VRAM access
+// Group: Cursor
 //-----------------------------------------------------------------------------
 
-// Function: V9_SetWriteAddress
-// Initialize VRAM address for writing
-void V9_SetWriteAddress(u32 addr) __PRESERVES(b, iyl, iyh);
-
-// Function: V9_SetReadAddress
-// Initialize VRAM address for reading
-void V9_SetReadAddress(u32 addr) __PRESERVES(b, iyl, iyh);
-
-// Function: V9_FillVRAM_CurrentAddr
-// 
-void V9_FillVRAM_CurrentAddr(u8 value, u16 count);
-
-// Function: V9_WriteVRAM_CurrentAddr
+// Function: V9_SetCursorAttribute
 //
-void V9_WriteVRAM_CurrentAddr(const u8* src, u16 count);
+inline void V9_SetCursorAttribute(u8 id, u16 x, u16 y, u8 color)
+{
+	V9_Poke(0x7FE00 + id * 8, y & 0xFF);
+	V9_Poke(0x7FE02 + id * 8, y >> 8);
+	V9_Poke(0x7FE04 + id * 8, x & 0xFF);
+	V9_Poke(0x7FE06 + id * 8, ((x >> 8) & 0x3) + (color << 6));
+}
 
-// Function: V9_ReadVRAM_CurrentAddr
-//
-void V9_ReadVRAM_CurrentAddr(const u8* dest, u16 count);
+#define V9_CURSOR_DISABLE			0b00010000
 
-// Function: V9_Poke_CurrentAddr
+// Function: V9_SetCursorEnable
 //
-void V9_Poke_CurrentAddr(u8 val) __PRESERVES(b, c, d, e, h, l, iyl, iyh);
+inline void V9_SetCursorEnable(u8 id, bool enable)
+{
+	u8 val = V9_Peek(0x7FE06 + id * 8) & ~V9_CURSOR_DISABLE;
+	V9_Poke(0x7FE06 + id * 8, (enable) ? val : val | V9_CURSOR_DISABLE);
+}
 
-// Function: V9_Peek_CurrentAddr
+// Function: V9_SetCursorPattern
 //
-u8 V9_Peek_CurrentAddr() __PRESERVES(b, c, d, e, h, l, iyl, iyh);
+inline void V9_SetCursorPattern(u8 id, const u8* data) { V9_WriteVRAM(0x7FF00 + id * 0x80, data, 128); }
 
-// Function: V9_FillVRAM
-//
-inline void V9_FillVRAM(u32 addr, u8 value, u16 count) { V9_SetWriteAddress(addr); V9_FillVRAM_CurrentAddr(value, count); }
+// Function: V9_SetCursorPalette
+// Set cursor palette offset
+inline void V9_SetCursorPalette(u8 offset) { V9_SetRegister(28, offset); }
 
-// Function: V9_WriteVRAM
-//
-inline void V9_WriteVRAM(u32 addr, const u8* src, u16 count) { V9_SetWriteAddress(addr); V9_WriteVRAM_CurrentAddr(src, count); }
+//-----------------------------------------------------------------------------
+// Group: Sprite
+//-----------------------------------------------------------------------------
 
-// Function: V9_ReadVRAM
+// Function: V9_SetSpriteEnable
 //
-inline void V9_ReadVRAM(u32 addr, const u8* dest, u16 count) { V9_SetReadAddress(addr); V9_ReadVRAM_CurrentAddr(dest, count); }
+inline void V9_SetSpriteEnable(bool enable) { V9_SetFlag(8, V9_R08_SPD_OFF, enable ? 0 : V9_R08_SPD_OFF); }
 
-// Function: V9_Poke
-//
-inline void V9_Poke(u32 addr, u8 val) { V9_SetWriteAddress(addr); V9_Poke_CurrentAddr(val); }
+// Function: V9_SetSpritePatternAddr
+// Set sprite patterns VRAM address
+inline void V9_SetSpritePatternAddr(u8 addr) { V9_SetRegister(25, addr); }
 
-// Function: V9_Peek
+// Function: V9_SetSpritePalette
+// Set sprite palette offset
+inline void V9_SetSpritePalette(u8 offset) { V9_SetRegister(28, offset); }
+
 //
-inline u8 V9_Peek(u32 addr) { V9_SetWriteAddress(addr); return V9_Peek_CurrentAddr(); }
+struct V9_Sprite
+{
+	u8		Y;			// Sprite Y-coordinate (Actual display position is one line below specified)
+	u8		Pattern;	// Sprite Pattern Number (Pattern Offset is specified in R#25 SGBA)
+	u16		X  : 10;	// Sprite X-coordinate
+	u16		_1 : 2;
+	u16		D  : 1;		// Sprite is disabled when D=1
+	u16		P  : 1;		// Sprite is in front of the front layer when P=0, sprite is behind the front layer when P=1.
+	u16		SC : 2;		// Palette offset for sprite colors
+};
+
+// Function: V9_SetSpriteP1
+// Set sprite attribute for P1 mode
+inline void V9_SetSpriteP1(u8 id, const struct V9_Sprite* attr) { V9_WriteVRAM(V9_P1_SPAT + 4 * id, (const u8*)attr, 4); }
+
+// Function: V9_SetSpritePatternP1
+// Set sprite pattern for P1 mode
+inline void V9_SetSpritePatternP1(u8 id, u8 pat) { V9_Poke(V9_P1_SPAT + 4 * id + 1, pat); }
+
+// Function: V9_SetSpritePositionP1
+// Set sprite position for P1 mode
+inline void V9_SetSpritePositionP1(u8 id, u8 x, u8 y) { V9_Poke(V9_P1_SPAT + (4 * id), y); V9_Poke(V9_P1_SPAT + (4 * id) + 2, x); }
+
+// Function: V9_SetSpriteP2
+// Set sprite attribute for P2 mode
+inline void V9_SetSpriteP2(u8 id, const struct V9_Sprite* attr) { V9_WriteVRAM(V9_P2_SPAT + 4 * id, (const u8*)attr, 4); }
+
+// Function: V9_SetSpritePatternP2
+// Set sprite pattern for P2 mode
+inline void V9_SetSpritePatternP2(u8 id, u8 pat) { V9_Poke(V9_P2_SPAT + 4 * id + 1, pat); }
+
+// Function: V9_SetSpritePositionP2
+// Set sprite position for P2 mode
+inline void V9_SetSpritePositionP2(u8 id, u8 x, u8 y) { V9_Poke(V9_P2_SPAT + (4 * id), y); V9_Poke(V9_P2_SPAT + (4 * id) + 2, x); }
 
 //-----------------------------------------------------------------------------
 // Group: Palette
@@ -248,7 +462,7 @@ struct V9_Color
 //   index - Index of the palette entry (0-63)
 //   color - 16 bits color value
 //           Format: [Ys:1|green:5|red:5|blue:5]
-void V9_SetPaletteEntry(u8 index, u16 color);
+void V9_SetPaletteEntry(u8 index, u16 color) __PRESERVES(h, l, iyl, iyh);
 
 // Function: V9_SetPalette
 // Set the colors of a given palette entries.
@@ -281,6 +495,150 @@ inline void V9_SetPaletteAll(const u8* table) { V9_SetPalette(0, 64, table); }
 
 #endif
 
+// Function: V9_SetLayerPalette
+// Set the P1 and P2 layers palette offset
+inline void V9_SetLayerPalette(u8 a, u8 b) { V9_SetFlag(13, V9_R13_PLTO_MASK, ((b & 0x3) << 2) + (a & 0x3)); }
+
+//-----------------------------------------------------------------------------
+// Group: Command helper
+//-----------------------------------------------------------------------------
+
+// Function: V9_SetCommandSX
+//
+inline void V9_SetCommandSX(u16 sx) { V9_SetRegister(32, sx & 0xFF); V9_SetRegister(33, sx >> 8); }
+
+// Function: V9_SetCommandSY
+//
+inline void V9_SetCommandSY(u16 sy) { V9_SetRegister(34, sy & 0xFF); V9_SetRegister(35, sy >> 8); }
+
+// Function: V9_SetCommandSA
+//
+inline void V9_SetCommandSA(u32 sa) { V9_SetRegister(32, sa & 0xFF); V9_SetRegister(34, (sa >> 8) & 0xFF); V9_SetRegister(35, (sa >> 16) & 0xFF); }
+
+// Function: V9_SetCommandDX
+//
+inline void V9_SetCommandDX(u16 dx) { V9_SetRegister(36, dx & 0xFF); V9_SetRegister(37, dx >> 8); }
+
+// Function: V9_SetCommandDY
+//
+inline void V9_SetCommandDY(u16 dy) { V9_SetRegister(38, dy & 0xFF); V9_SetRegister(39, dy >> 8); }
+
+// Function: V9_SetCommandDA
+//
+inline void V9_SetCommandDA(u32 da) { V9_SetRegister(36, da & 0xFF); V9_SetRegister(38, (da >> 8) & 0xFF); V9_SetRegister(39, (da >> 16) & 0xFF); }
+
+// Function: V9_SetCommandNX
+//
+inline void V9_SetCommandNX(u16 nx) { V9_SetRegister(40, nx & 0xFF); V9_SetRegister(41, nx >> 8); }
+
+// Function: V9_SetCommandNY
+//
+inline void V9_SetCommandNY(u16 ny) { V9_SetRegister(42, ny & 0xFF); V9_SetRegister(43, ny >> 8); }
+
+// Function: V9_SetCommandMJ
+//
+inline void V9_SetCommandMJ(u16 mj) { V9_SetRegister(40, mj & 0xFF); V9_SetRegister(41, mj >> 8); }
+
+// Function: V9_SetCommandMI
+//
+inline void V9_SetCommandMI(u16 mi) { V9_SetRegister(42, mi & 0xFF); V9_SetRegister(43, mi >> 8); }
+
+// Function: V9_SetCommandNA
+//
+inline void V9_SetCommandNA(u32 na) { V9_SetRegister(40, na & 0xFF); V9_SetRegister(42, (na >> 8) & 0xFF); V9_SetRegister(43, (na >> 16) & 0xFF); }
+
+// Function: V9_SetCommandArgument
+//
+inline void V9_SetCommandArgument(u8 arg) { V9_SetRegister(44, arg); }
+
+// Function: V9_SetCommandLogicalOp
+//
+inline void V9_SetCommandLogicalOp(u8 lop) { V9_SetRegister(45, lop); }
+
+// Function: V9_SetCommandWriteMask
+//
+inline void V9_SetCommandWriteMask(u16 wm) { V9_SetRegister(46, wm & 0xFF); V9_SetRegister(47, wm >> 8); }
+
+// Function: V9_SetCommandFC
+//
+inline void V9_SetCommandFC(u16 fc) { V9_SetRegister(48, fc & 0xFF); V9_SetRegister(49, fc >> 8); }
+
+// Function: V9_SetCommandBC
+//
+inline void V9_SetCommandBC(u16 bc) { V9_SetRegister(50, bc & 0xFF); V9_SetRegister(51, bc >> 8); }
+
+// Function: V9_ExecCommand
+//
+inline void V9_ExecCommand(u8 op) { V9_SetRegister(52, op); }
+
+// Function: GetCommandBX
+//
+inline u16 GetCommandBX() { return V9_GetRegister(53) + (V9_GetRegister(54) << 8); }
+
+//-----------------------------------------------------------------------------
+// Group: Command
+//-----------------------------------------------------------------------------
+
+// Function: V9_CommandSTOP
+// Command being executed is stopped.
+inline void V9_CommandSTOP() { V9_ExecCommand(V9_CMD_STOP); }
+
+// Function: V9_CommandLMMC
+// Data is transferred from CPU to VRAM rectangle area.
+inline void V9_CommandLMMC(const u8* src, u16 dx, u16 dy, u16 nx, u16 ny, u8 arg) { V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_ExecCommand(V9_CMD_LMMC); }
+
+// Function: V9_CommandLMMV
+// VRAM rectangle area is painted out.
+inline void V9_CommandLMMV(u16 dx, u16 dy, u16 nx, u16 ny, u8 arg, u16 fc) { V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_SetCommandFC(fc); V9_ExecCommand(V9_CMD_LMMV); }
+
+// Function: V9_CommandLMCM
+// VRAM rectangle area data is transferred to CPU.
+inline void V9_CommandLMCM(u16 sx, u16 sy, u16 nx, u16 ny, u8 arg, u8* dest) { V9_SetCommandSX(sx); V9_SetCommandSY(sy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_ExecCommand(V9_CMD_LMCM); }
+
+// Function: V9_CommandLMMM
+// Rectangle area data is transferred from VRAM to VRAM.
+inline void V9_CommandLMMM(u16 sx, u16 sy, u16 dx, u16 dy, u16 nx, u16 ny, u8 arg) { V9_SetCommandSX(sx); V9_SetCommandSY(sy); V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_ExecCommand(V9_CMD_LMMM); }
+
+// Function: V9_CommandCMMC
+// CPU character data is color-developed and transferred to VRAM rectangle area.
+inline void V9_CommandCMMC(u16 dx, u16 dy, u16 nx, u16 ny, u8 arg, u16 fc, u16 bc) { V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_SetCommandFC(fc); V9_SetCommandBC(bc); V9_ExecCommand(V9_CMD_CMMC); }
+
+// Function: V9_CommandCMMM
+// VRAM character data is color-developed and transferred to VRAM rectangle area.
+inline void V9_CommandCMMM(u32 sa, u16 dx, u16 dy, u16 nx, u16 ny, u8 arg, u16 fc, u16 bc) { V9_SetCommandSA(sa); V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_SetCommandFC(fc); V9_SetCommandBC(bc); V9_ExecCommand(V9_CMD_CMMM); }
+
+// Function: V9_CommandBMXL
+// Data on VRAM linear address is transferred to VRAM rectangle area.
+inline void V9_CommandBMXL(u32 sa, u16 dx, u16 dy, u16 nx, u16 ny, u8 arg) { V9_SetCommandSA(sa); V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_ExecCommand(V9_CMD_BMXL); }
+
+// Function: V9_CommandBMLX
+// VRAM rectangle area data is transferred onto VRAM linear address.
+inline void V9_CommandBMLX(u16 sx, u16 sy, u32 da, u16 nx, u16 ny, u8 arg) { V9_SetCommandSX(sx); V9_SetCommandSY(sy); V9_SetCommandDA(da); V9_SetCommandNX(nx); V9_SetCommandNY(ny); V9_SetCommandArgument(arg); V9_ExecCommand(V9_CMD_BMLX); }
+
+// Function: V9_CommandBMLL
+// Data on VRAM linear address is transferred onto VRAM linear address.
+inline void V9_CommandBMLL(u32 sa, u32 da, u32 na, u8 arg) { V9_SetCommandSA(sa); V9_SetCommandDA(da); V9_SetCommandNA(na); V9_SetCommandArgument(arg); V9_ExecCommand(V9_CMD_BMLL); }
+
+// Function: V9_CommandLINE
+// Straight line is drawn on X/Y-coordinates.
+inline void V9_CommandLINE(u16 dx, u16 dy, u16 mj, u16 mi, u8 arg, u16 fc) { V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandMJ(mj); V9_SetCommandMI(mi); V9_SetCommandArgument(arg); V9_SetCommandFC(fc); V9_ExecCommand(V9_CMD_LINE); }
+
+// Function: V9_CommandSEARCH
+// Border color coordinates on X/Y space are detected.
+inline void V9_CommandSEARCH(u16 sx, u16 sy, u8 arg, u16 fc) { V9_SetCommandSX(sx); V9_SetCommandSY(sy); V9_SetCommandArgument(arg); V9_SetCommandFC(fc); V9_ExecCommand(V9_CMD_SEARCH); }
+
+// Function: V9_CommandPOINT
+// Color code of specified point on X/Y-coordinates is read out.
+inline void V9_CommandPOINT(u16 sx, u16 sy) { V9_SetCommandSX(sx); V9_SetCommandSY(sy); V9_ExecCommand(V9_CMD_POINT); }
+
+// Function: V9_CommandPSET
+// Drawing is executed at drawing point on X/Y-coordinates.
+inline void V9_CommandPSET(u16 dx, u16 dy, u16 fc, u8 shift) { V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_SetCommandFC(fc); V9_ExecCommand(V9_CMD_PSET | shift); }
+
+// Function: V9_CommandADVANCE
+// Drawing point on X/Y-coordinates is shifted.
+inline void V9_CommandADVANCE(u16 dx, u16 dy, u8 shift) { V9_SetCommandDX(dx); V9_SetCommandDY(dy); V9_ExecCommand(V9_CMD_ADVANCE | shift); }
+
 //-----------------------------------------------------------------------------
 // Group: Helper
 //-----------------------------------------------------------------------------
@@ -293,224 +651,14 @@ bool V9_Detect();
 // Clear the whole 512 KB of VRAM with zero
 void V9_ClearVRAM();
 
+// Function: V9_CellAddrP1A
+//
+inline u32 V9_CellAddrP1A(u8 x, u8 y) { return V9_P1_PNT_A + (((64 * y) + x) * 2); }
 
+// Function: V9_CellAddrP1B
+//
+inline u32 V9_CellAddrP1B(u8 x, u8 y) { return V9_P1_PNT_B + (((64 * y) + x) * 2); }
 
-		// ifndef G9K_DISABLE_DIRECT_EXPORT
-// ;----------------------------------------------------------------------------;
-// ; General Functions overview                                                 ;
-// ;----------------------------------------------------------------------------;
-		// EXPORT G9k.Reset    	   ; Reset and initialize the Gfx9000
-		// EXPORT G9k.SetScreenMode   ; Set screen mode
-		// EXPORT G9k.SetVramWrite    ; Set vram write address
-		// EXPORT G9k.SetVramRead     ; Set vram read address
-		// EXPORT G9k.Detect          ; Detect presence of the Gfx9000
-		// EXPORT G9k.DisplayEnable   ; Enable display
-		// EXPORT G9k.DisplayDisable  ; Disable display
-		// EXPORT G9k.SpritesEnable   ; Enable sprites/mouse cursor
-		// EXPORT G9k.SpritesDisable  ; Disable sprites/mouse cursor
-		// EXPORT G9k.WritePalette    ; Write palette data to the Gfx9000
-		// EXPORT G9k.ReadPalette     ; Read palette data from the Gfx9000
-		// EXPORT G9k.SetAdjust       ; Adjust Gfx9000 display 
-		// EXPORT G9k.SetBackDropColor; Set backdrop color
-		// EXPORT G9k.SetScrollX      ; Set scroll X Layer A
-		// EXPORT G9k.SetScrollY      ; Set scroll Y Layer A
-		// IFNDEF G9K_DISABLE_PATTERN
-		// EXPORT G9k.SetScrollXB	   ; Set scroll X Layer B
-		// EXPORT G9k.SetScrollYB     ; Set scroll Y Layer B
-		// ENDIF
-		// EXPORT G9k.SetScrollMode   ; Set scroll mode
-		// EXPORT G9k.Close           ; Closes a G9B or VFF file
-
-// ;----------------------------------------------------------------------------;
-// ; Blitter Function overview                                                  ;
-// ;----------------------------------------------------------------------------;
-		// EXPORT G9k.DrawFilledBox     ; Draw filled box
-		// EXPORT G9k.DrawBox           ; Draw box
-		// EXPORT G9k.DrawLine	     ; Draw line (simple)
-		// EXPORT G9k.SetupCopyRamToXY  ; Setup parameters for Ram to XY copy
-		// EXPORT G9k.CopyRamToXY       ; Copy data from Ram to XY
-		// EXPORT G9k.SetupCopyXYToRam  ; Setup parameters for XY to Ram copy
-		// EXPORT G9k.CopyXYToRam       ; Copy data from XY to Ram
-		// EXPORT G9k.CopyXYToXY        ; Copy XY to XY
-		// EXPORT G9k.CopyXYToRegisterXY; Copy XY(struct) to XY (registers)
-		// EXPORT G9k.CopyVramToXY      ; Copy Linear vram address to XY
-		// EXPORT G9k.CopyXYToVram      ; Copy XY to Linear vram address
-		// EXPORT G9k.CopyVramToVram    ; Copy vram linear to vram linear
-		// EXPORT G9k.SetCmdWriteMask   ; Set blitter command write mask
-		// EXPORT G9k.SetCmdColor       ; Set blitter command color
-		// EXPORT G9k.SetCmdBackColor   ; Set command back ground color
-		// EXPORT G9k.CopyRamToVram     ; Copy data from ram to Linear vram address
-// ;----------------------------------------------------------------------------;
-// ; Font Function overview                                                     ;
-// ; ---------------------------------------------------------------------------;
-// ; DEFINE G9K_DISABLE_VFF to disable inclution of vff functions
-		// IFNDEF G9K_DISABLE_VFF
-		// EXPORT G9k.OpenVff            ; Open a VFF file
-		// EXPORT G9k.LoadFont	      ; Loads a VFF(V9990 font format) file from disk
-		// EXPORT G9k.SetFont            ; Set a font as default
-		// EXPORT G9k.PrintString        ; Print a zero terminated string 
-		// EXPORT G9k.PutChar	      ; Print a character
-		// EXPORT G9k.Locate	      ; Set X and Y coordinates for putchar
-		// ENDIF
-// ;----------------------------------------------------------------------------;
-// ; Gfx9000 bitmap functions                                                   ;
-// ;----------------------------------------------------------------------------;
-// ; DEFINE G9K_DISABLE_G9B to disable inclution of G9B functions
-		// IFNDEF G9K_DISABLE_G9B
-		// EXPORT G9k.OpenG9B            ; Open a G9B file
-		// EXPORT G9k.ReadG9BPalette     ; Read palette data from disk to Gfx9000
-		// EXPORT G9k.ReadG9B            ; Read data from disk to Gfx9000 VRAM X,Y
-		// EXPORT G9k.ReadG9BLinear      ; Read data from disk to Gfx9000 Linear VRAM Address
-		// EXPORT G9k.CalcG9BVramSize    ; Calculate vram size of A G9B file
-		// ENDIF
-		
-// ;----------------------------------------------------------------------------;
-// ; Gfx9000 pattern functions                                                  ;
-// ;----------------------------------------------------------------------------;
-// ; DEFINE G9K_DISABLE_PATTERN to disable inclution of pattern functions
-		// IFNDEF G9K_DISABLE_PATTERN
-		// EXPORT G9k.SetPatternData     ; Set pattern data
-		// EXPORT G9k.GetPatternData     ; Get partern data
-		// EXPORT G9k.SetPattern         ; Set pattern
-		// EXPORT G9k.GetPattern         ; Get pattern
-		// ENDIF
-// ;----------------------------------------------------------------------------;
-// ; Gfx9000 Interrupt functions                                                ;
-// ;----------------------------------------------------------------------------;
-		// EXPORT  G9k.SetIntLine
-		
-// ;----------------------------------------------------------------------------;
-// ; Macro overview    	                                                     ;
-// ;----------------------------------------------------------------------------;
-// ; G9kCmdWait            - Wait for Blitter command completion
-// ; G9kWriteReg           - Write Gfx9000 register
-// ; G9kReadReg            - Read Gfx9000 register
-// ; G9kWaitVsync          - Wait for Vertical Sync
-		// ENDIF
-
-// ;----------------------------------------------------------------------------;
-// ; V9990 register and port defines                                            ;
-// ;----------------------------------------------------------------------------;
-
-
-
-
-// ; Bit defines G9K_SYS_CTRL
-// G9K_SYS_CTRL_SRS		EQU	2	; Power on reset state
-// G9K_SYS_CTRL_MCKIN	EQU	1	; Select MCKIN terminal
-// G9K_SYS_CTRL_XTAL	EQU	0	; Select XTAL
-
-// ; Register Select options
-// G9K_DIS_INC_READ		EQU	64
-// G9K_DIS_INC_WRITE	EQU	128
-
-// ; Bit defines G9K_SCREEN_MODE0 (register 6)
-// G9K_SCR0_STANDBY		EQU	192	; Stand by mode
-// G9K_SCR0_BITMAP		EQU	128	; Select Bit map mode
-// G9K_SCR0_P2			EQU	64	; Select P1 mode
-// G9K_SCR0_P1			EQU	0	; Select P1 mode
-// G9K_SCR0_DTCLK		EQU	32	; Master Dot clock not divided
-// G9K_SCR0_DTCLK2		EQU	16	; Master Dot clock divided by 2
-// G9K_SCR0_DTCLK4		EQU	0	; Master Dot clock divided by 4
-// G9K_SCR0_XIM2048		EQU	12	; Image size = 2048
-// G9K_SCR0_XIM1024		EQU	8	; Image size = 1024
-// G9K_SCR0_XIM512		EQU	4	; Image size = 512
-// G9K_SCR0_XIM256		EQU	0	; Image size = 256
-// G9K_SCR0_16BIT		EQU	3	; 16 bits/dot
-// G9K_SCR0_8BIT		EQU	2	; 8 bits/dot
-// G9K_SCR0_4BIT		EQU	1	; 4 bits/dot
-// G9K_SCR0_2BIT		EQU	0	; 2 bits/dot
-
-// ; Bit defines G9K_SCREEN_MODE1 (register 7)
-// G9K_SCR1_C25M		EQU	64	; Select 640*480 mode
-// G9K_SCR1_SM1		EQU	32	; Selection of 263 lines during non interlace , else 262
-// G9K_SCR1_SM		EQU	16	; Selection of horizontal frequency 1H=fsc/227.5
-// G9K_SCR1_PAL		EQU	8	; Select PAL, else NTSC
-// G9K_SCR1_EO		EQU	4	; Select of vertical resoltion of twice the non-interlace resolution
-// G9K_SCR1_IL		EQU	2	; Select Interlace
-// G9K_SCR1_HSCN		EQU	1	; Select High scan mode
-
-// ; Bit defines G9K_CTRL    (Register 8)
-// G9K_CTRL_DISP		EQU	128	; Display VRAM
-// G9K_CTRL_DIS_SPD	EQU	64	; Disable display sprite (cursor)
-// G9K_CTRL_YSE		EQU	32	; /YS Enable
-// G9K_CTRL_VWTE		EQU	16	; VRAM Serial data bus control during digitization
-// G9K_CTRL_VWM		EQU	8	; VRAM write control during digitization
-// G9K_CTRL_DMAE		EQU	4	; Enable DMAQ output
-// G9K_CTRL_VRAM512	EQU	2	; VRAM=512KB
-// G9K_CTRL_VRAM256	EQU	1	; VRAM=256KB
-// G9K_CTRL_VRAM128	EQU	0	; VRAM=128KB
-
-// ; Bit defines G9K_INT_ENABLE (register 9)
-// G9K_INT_IECE	        EQU     4       ; Command end interrupt enable control
-// G9K_INT_IEH	        EQU     2       ; Display position interrupt enable
-// G9K_INT_IEV	        EQU     1       ; Int. enable during vertical retrace line interval
-
-// ; Bit Defines G9K_PALETTE_CTRL  (Register 13)
-// G9K_PAL_CTRL_YUV	EQU	192	; YUV mode
-// G9K_PAL_CTRL_YJK	EQU	128	; YJK mode
-// G9K_PAL_CTRL_256	EQU	64	; 256 color mode
-// G9K_PAL_CTRL_PAL	EQU	0	; Pallete mode
-// G9K_PAL_CTRL_YAE	EQU	32	; Enable YUV/YJK RGB mixing mode
-
-// ; Bit defines G9K_LOP           (Register 45)
-// G9K_LOP_TP		EQU	16
-// G9K_LOP_WCSC		EQU	12
-// G9K_LOP_WCNOTSC		EQU	3
-// G9K_LOP_WCANDSC		EQU	8
-// G9K_LOP_WCORSC		EQU	14
-// G9K_LOP_WCEORSC		EQU	6
-
-// ; Bit defines G9K_ARG
-// G9K_ARG_MAJ		EQU	1
-// G9K_ARG_NEG		EQU	2
-// G9K_ARG_DIX		EQU	4
-// G9K_ARG_DIY		EQU	8
-
-// ; Blitter Commands G9K_OPCODE    (Register 52)
-// G9K_OPCODE_STOP		EQU	00h	; Command being excuted is stopped 
-// G9K_OPCODE_LMMC		EQU	10h     ; Data is transferred from CPU to VRAM rectangle area
-// G9K_OPCODE_LMMV		EQU	20h     ; VRAM rectangle area is painted out
-// G9K_OPCODE_LMCM		EQU	30h     ; VRAM rectangle area is transferred to CPU
-// G9K_OPCODE_LMMM		EQU	40h     ; Rectangle area os transferred from VRAM to VRAM
-// G9K_OPCODE_CMMC		EQU	050h    ; CPU character data is color-developed and transferred to VRAM rectangle area
-// G9K_OPCODE_CMMK		EQU	060h    ; Kanji ROM data is is color-developed and transferred to VRAM rectangle area
-// G9K_OPCODE_CMMM		EQU	070h    ; VRAM character data is color-developed and transferred to VRAM rectangle area 
-// G9K_OPCODE_BMXL		EQU	080h    ; Data on VRAM linear address is transferred to VRAM rectangle area
-// G9K_OPCODE_BMLX		EQU	090h    ; VRAM rectangle area is transferred to VRAM linear address 
-// G9K_OPCODE_BMLL		EQU	0A0h    ; Data on VRAM linear address is transferred to VRAM linear address 
-// G9K_OPCODE_LINE		EQU	0B0h    ; Straight line is drawer on X-Y co-ordinates
-// G9K_OPCODE_SRCH		EQU	0C0h    ; Border color co-ordinates on X-Y are detected
-// G9K_OPCODE_POINT	EQU	0D0h    ; Color code on specified point on X-Y is read out
-// G9K_OPCODE_PSET		EQU	0E0h    ; Drawing is executed at drawing point on X-Y co-ordinates
-// G9K_OPCODE_ADVN		EQU	0F0h    ; Drawing point on X-Y co-ordinates is shifted
-
-// ; Bit defines G9K_STATUS
-// G9K_STATUS_TR           EQU     128
-// G9K_STATUS_VR           EQU     64
-// G9K_STATUS_HR           EQU     32
-// G9K_STATUS_BD           EQU     16
-// G9K_STATUS_MSC          EQU     4
-// G9K_STATUS_EO           EQU     2
-// G9K_STATUS_CE           EQU     1
-
-// ; Fixed VRAM addresses
-// G9K_SCRA_PAT_NAME_TABLE EQU     07C000h
-// G9K_SCRB_PAT_NAME_TABLE EQU     07E000h
-// G9K_P1_SPR_ATTRIB_TABLE EQU     03FE00h
-// G9K_P2_SPR_ATTRIB_TABLE EQU     07BE00h
-
-// G9K_CURSOR0_ATTRIB      EQU     07FE00h
-// G9K_CURSOR1_ATTRIB      EQU     07FE08h
-
-// G9K_CURSOR0_PAT_DATA    EQU     07FF00h
-// G9K_CURSOR1_PAT_DATA    EQU     07FF80h
-
-// G9K_RED                 EQU     32
-// G9K_GREEN               EQU     1024
-// G9K_BLUE                EQU     1
-
-
-// G9K_WRITE_MASK_LAYER_A	EQU	000FFh
-// G9K_WRITE_MASK_LAYER_B	EQU	0FF00h
-
+// Function: V9_CellAddrP2
+//
+inline u32 V9_CellAddrP2(u8 x, u8 y) { return V9_P2_PNT + (((128 * y) + x) * 2); }

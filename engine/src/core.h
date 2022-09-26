@@ -10,7 +10,7 @@
 // Library version
 #define VERSION_MAJOR			(u16)0		// 4-bits (0-15)
 #define VERSION_MINOR			(u16)5		// 6-bits (0-63)
-#define VERSION_PATCH			(u16)3		// 6-bits (0-63)
+#define VERSION_PATCH			(u16)7		// 6-bits (0-63)
 #define VERSION(a, b, c)		((((a) & 0x0F) << 12) | (((b) & 0x3F) << 6) | ((c) & 0x3F))
 #define VERSION_CURRENT			VERSION(VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH)		
 
@@ -93,7 +93,7 @@ typedef void (*callback)(void);		// Callback default signature
 #define PEEKW(addr)			(*(u16*)(addr))
 
 //-----------------------------------------------------------------------------
-// Fastcall (__z88dk_fastcall)
+// Fastcall
 //-----------------------------------------------------------------------------
 // Parameter/return register:
 // - 8 bits 				L
@@ -115,7 +115,7 @@ typedef void (*callback)(void);		// Callback default signature
 #define __CALLEE			__z88dk_callee
 
 //-----------------------------------------------------------------------------
-// SDCCCall (__sdcccall(x))
+// SDCCCall
 //-----------------------------------------------------------------------------
 #define __SDCCCALL0			__sdcccall(0)
 #define __SDCCCALL1			__sdcccall(1)
